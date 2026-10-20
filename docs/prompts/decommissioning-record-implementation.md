@@ -232,6 +232,25 @@ di stile per i test nuovi.
 7. **Nessuna dipendenza nuova** nel plugin (`dependencies = []` resta vuoto). Gli strumenti di
    sviluppo (ruff) vanno solo nel virtualenv di sviluppo.
 8. Non modificare `RMA.update_asset_serial()` né gli script esterni GARR.
+9. **Tracciamento dell'avanzamento** in `docs/specs/decommissioning-record-tasks.md` (checklist
+   `- [ ] T0NN Descrizione — requisiti: R… — test: tests/test_….py`, checkpoint come righe a sé,
+   sezione `## Stato` in cima con task corrente, ultimo task completato, checkpoint raggiunti,
+   problemi aperti). I tre file del lavoro sono:
+   - specifica: `docs/specs/decommissioning-record.md`;
+   - task: `docs/specs/decommissioning-record-tasks.md`;
+   - prompt di implementazione: `docs/prompts/decommissioning-record-implementation.md`.
+
+   Regole:
+   - all'inizio di ogni sessione leggi `CLAUDE.md`, la specifica e il file dei task, ed esegui
+     **solo il primo task non spuntato**;
+   - a fine task la riga diventa `- [x] T00N … — commit <hash breve> — <data>` e `## Stato` viene
+     aggiornata, **nello stesso commit del codice**. Un commit non può contenere il proprio hash (e
+     `--amend` lo cambierebbe), quindi il commit del task scrive `commit (pending)` e il commit
+     successivo, che tocca sempre il file dei task, lo sostituisce con l'hash reale: nessuna
+     riscrittura della storia;
+   - i problemi scoperti durante il lavoro diventano nuovi task o voci in §Domande aperte della
+     specifica, mai note solo in chat;
+   - ai checkpoint fermati e aspetta la mia conferma prima di spuntarli.
 
 ---
 
@@ -667,6 +686,9 @@ selezionabile per un record nuovo; valore che torna in configurazione → normal
 ## 5. Piano a passi
 
 Ogni passo: test che falliscono → codice → `dev/nb.sh check` → commit → riepilogo → stop.
+
+La checklist operativa di questi passi (task T0NN e i due checkpoint) è in
+`docs/specs/decommissioning-record-tasks.md`; lo stato corrente si legge lì, non qui.
 
 0. **Ambiente** (§3): verifica, proposta, attesa dell'ok, creazione, stato di partenza, eventuale
    fix di `0001_initial_squashed` in commit separato (§3.4).

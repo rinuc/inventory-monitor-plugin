@@ -9,6 +9,9 @@ Questa specifica fissa il *cosa* e il *come*; le scelte di progetto non coperte 
 marcate **P*n*** (proposte, approvate con la specifica) e le ambiguità che richiedevano una
 risposta sono in [§Domande aperte](#domande-aperte) (tutte risolte).
 
+**Piano di implementazione e avanzamento**: `docs/specs/decommissioning-record-tasks.md`
+(checklist dei task, checkpoint, stato corrente). Questa specifica non contiene il piano.
+
 ---
 
 ## 1. Obiettivo
@@ -485,6 +488,9 @@ corretta. Una query in più solo quando il seriale cambia.
 ---
 
 ## 8. File da toccare
+
+La colonna *Passo* è il passo del piano del prompt (§5); la corrispondenza con i task T0NN è in
+`docs/specs/decommissioning-record-tasks.md`.
 
 | File | Passo | Modifica |
 | --- | --- | --- |

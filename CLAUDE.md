@@ -116,7 +116,26 @@ re-exported from its package `__init__.py`. `RMA` is the reference child model o
   in `post_migrate`). Any data migration that resolves a ContentType must return early when there is
   nothing to migrate (see `migrations/0001_initial_squashed.py` and `tests/test_migrations.py`).
 
-## Current work
+## Current work: decommissioning record (NIS2)
 
-Decommissioning record (NIS2): spec in `docs/specs/decommissioning-record.md`, original brief in
-`docs/prompts/decommissioning-record-implementation.md`.
+The three files of this work:
+
+- Spec: `docs/specs/decommissioning-record.md`
+- Tasks and progress: `docs/specs/decommissioning-record-tasks.md`
+- Implementation brief: `docs/prompts/decommissioning-record-implementation.md`
+
+### Task tracking
+
+1. **At the start of every session** read `CLAUDE.md`, the spec and the task file, then execute
+   **only the first unchecked line** of the checklist (a task or a checkpoint).
+2. **When a task is done**, in the same commit as its code:
+   - the line becomes `- [x] T00N … — commit <short hash> — <date>`;
+   - the `## Stato` section is updated (current task, last completed task, checkpoints reached,
+     open problems).
+
+   A commit cannot contain its own hash (and `--amend` changes it), so the task's own commit
+   writes `commit (pending)`; the **next** commit, which always touches the task file, replaces it
+   with the real short hash. No history rewriting is needed.
+3. **Problems found while working** become new tasks in the checklist or entries in §Domande
+   aperte of the spec — never notes in chat only.
+4. **Checkpoints**: stop and wait for the user's confirmation before checking them off.
