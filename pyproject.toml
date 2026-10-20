@@ -50,6 +50,8 @@ inventory_monitor = ["**/__pycache__/*", "**/*.py[cod]"]
 line-length = 120
 target-version = "py312"
 indent-width = 4
+# Newer ruff releases also format code blocks inside Markdown; keep docs out of lint/format
+extend-exclude = ["*.md"]
 
 [tool.ruff.format]
 quote-style = "double"
