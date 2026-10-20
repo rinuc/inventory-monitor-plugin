@@ -32,6 +32,7 @@ from inventory_monitor.models import (
     AssetType,
     Contract,
     Contractor,
+    DecommissioningRecord,
     ExternalInventory,
     Invoice,
     Probe,
@@ -49,8 +50,9 @@ SUPPORTED_MODELS = (
     RMA,
 )
 
-# Deliberately excluded: AssetType is a lookup table, Probe is machine-generated telemetry
-EXCLUDED_MODELS = (AssetType, Probe)
+# Deliberately excluded: AssetType is a lookup table, Probe is machine-generated telemetry,
+# DecommissioningRecord names its operators through two explicit Contact foreign keys (D2)
+EXCLUDED_MODELS = (AssetType, DecommissioningRecord, Probe)
 
 # Edit forms, which must render exactly one owner widget each
 EDIT_FORMS = (

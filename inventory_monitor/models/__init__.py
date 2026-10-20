@@ -27,6 +27,11 @@ from inventory_monitor.models.contractor import (
     Contractor,
 )
 
+# Decommissioning Record models
+from inventory_monitor.models.decommissioning_record import (
+    DecommissioningRecord,
+)
+
 # External Inventory models
 from inventory_monitor.models.external_inventory import (
     ExternalInventory,
@@ -69,6 +74,8 @@ __all__ = [
     "Contract",
     # Contractor models
     "Contractor",
+    # Decommissioning Record models
+    "DecommissioningRecord",
     # External Inventory models
     "ExternalInventory",
     # Invoice models

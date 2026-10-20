@@ -160,6 +160,15 @@ class Asset(ContactsMixin, PrimaryModel, DateStatusMixin, ImageAttachmentsMixin)
         null=True,
     )
 
+    #
+    # Decommissioning
+    #
+    last_related_info = models.TextField(
+        blank=True,
+        default="",
+        verbose_name=_("Last related device info"),
+    )
+
     # Override tags field to avoid reverse accessor clash with other plugins
     tags = TaggableManager(
         through="extras.TaggedItem",
@@ -371,6 +380,41 @@ class Asset(ContactsMixin, PrimaryModel, DateStatusMixin, ImageAttachmentsMixin)
         # If currency is set, price must also be set
         if self.currency and self.price is None:
             raise ValidationError({"price": _("Price is required when currency is set.")})
+
+        # A decommissioning record with dates pins the lifecycle status (V6)
+        if self.pk:
+            from inventory_monitor.models.decommissioning_record import DecommissioningRecord
+
+            record = (
+                DecommissioningRecord.objects.filter(asset_id=self.pk)
+                .values("technical_decommission_date", "disposal_date")
+                .first()
+            )
+            if record and record["disposal_date"] and self.lifecycle_status != LifecycleStatusChoices.DISPOSED:
+                raise ValidationError(
+                    {
+                        "lifecycle_status": ValidationError(
+                            _("The asset has a disposal date in its decommissioning record: it must stay Disposed."),
+                            code="disposed_asset",
+                        )
+                    }
+                )
+            if (
+                record
+                and record["technical_decommission_date"]
+                and self.lifecycle_status not in (LifecycleStatusChoices.RETIRED, LifecycleStatusChoices.DISPOSED)
+            ):
+                raise ValidationError(
+                    {
+                        "lifecycle_status": ValidationError(
+                            _(
+                                "The asset has a technical decommission date in its decommissioning record: "
+                                "it must stay Retired or Disposed."
+                            ),
+                            code="decommissioned_asset",
+                        )
+                    }
+                )
 
     def delete(self, *args, **kwargs):
         """
