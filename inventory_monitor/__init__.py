@@ -37,6 +37,11 @@ class NetBoxInventoryMonitorConfig(PluginConfig):
     min_version = "4.7.0"
     max_version = "4.7.99"
 
+    def ready(self):
+        super().ready()
+
+        from . import signals  # noqa: F401
+
     @classmethod
     def validate(cls, user_config, netbox_version):
         # Runs at NetBox startup; super() fills in default_settings first

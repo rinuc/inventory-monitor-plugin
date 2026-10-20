@@ -207,6 +207,54 @@ class Asset(ContactsMixin, PrimaryModel, DateStatusMixin, ImageAttachmentsMixin)
             ),
         ]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Persisted assignment, to detect changes on save (last_related_info, R1)
+        self._original_assigned_object_type_id = self.__dict__.get("assigned_object_type_id")
+        self._original_assigned_object_id = self.__dict__.get("assigned_object_id")
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        if update_fields is None or {"assigned_object_type", "assigned_object_id"} & set(update_fields):
+            if self._refresh_last_related_info() and update_fields is not None:
+                kwargs["update_fields"] = {*update_fields, "last_related_info"}
+
+        super().save(*args, **kwargs)
+
+        self._original_assigned_object_type_id = self.assigned_object_type_id
+        self._original_assigned_object_id = self.assigned_object_id
+
+    def _refresh_last_related_info(self):
+        """Snapshot the current or the outgoing Device into last_related_info (spec §3.2, D10).
+
+        Returns True if the field was written.
+        """
+        from inventory_monitor.snapshot import device_like_content_types, snapshot_of_assignment
+
+        device_like = device_like_content_types()
+        before = (self._original_assigned_object_type_id, self._original_assigned_object_id)
+        after = (self.assigned_object_type_id, self.assigned_object_id)
+        # A new instance built with assigned_object=... already has it in __dict__ at __init__
+        changed = self._state.adding or before != after
+
+        if after[0] in device_like:
+            # A new Device/Module, or the same one with an empty field
+            if not changed and self.last_related_info:
+                return False
+            snapshot = snapshot_of_assignment(*after)
+        elif changed and before[0] in device_like:
+            # Leaving a Device/Module for a Site/Location/Rack or no assignment: outgoing Device (D10)
+            snapshot = snapshot_of_assignment(*before)
+        else:
+            return False
+
+        # None: the Device/Module no longer exists (orphaned assignment)
+        if snapshot is None:
+            return False
+        self.last_related_info = snapshot
+        return True
+
     def get_related_probes(self):
         """
         Get all probe records related to this asset through various serial number matches:
