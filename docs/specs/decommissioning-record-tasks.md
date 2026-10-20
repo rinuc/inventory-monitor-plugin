@@ -6,16 +6,21 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
 
 ## Stato
 
-- **Task corrente**: CHECKPOINT 1 — schema della migrazione e `migrate` avanti/indietro, in attesa
-  dell'ok dell'utente
-- **Ultimo task completato**: T007 — `last_related_info` (passo 4), commit (pending), 2026-10-20
-- **Checkpoint raggiunti**: nessuno
+- **Task corrente**: T008 — Form, filtri, tabelle (passo 5)
+- **Ultimo task completato**: T007 — `last_related_info` (passo 4), commit `83525a9`, 2026-10-20
+- **Checkpoint raggiunti**: CHECKPOINT 1 (2026-10-20)
 - **Problemi aperti** (fuori ambito, da aprire come issue separate; nessuno blocca il piano):
   - chiave `FIELD_CHOICES` documentata nel README per `lifecycle_status` senza effetto (D6);
   - `AssetBulkImportForm.save()` disassegna l'asset in un import di aggiornamento senza colonne
     `assigned_*_id` (Q7);
   - il `CLAUDE.md` dell'harness `netbox-docker` cita un `differenze.txt` che non esiste e descrive la
-    guardia di `0001_initial_squashed` come modifica locale (ora è nel sorgente, T003).
+    guardia di `0001_initial_squashed` come modifica locale (ora è nel sorgente, T003);
+  - `manage.py sqlmigrate inventory_monitor <n>` fallisce con `NodeNotFoundError`:
+    `0001_initial_squashed` dipende da `('dcim', '0153_created_datetimefield')`, che in NetBox 4.7
+    esiste solo dentro la squash `dcim/0131_squashed_0159`, e `sqlmigrate` costruisce il grafo con
+    `replace_migrations=False`. `migrate` e `showmigrations` funzionano. Aggiramento: in
+    `manage.py shell`, `MigrationLoader(connection).collect_sql([(nodo, backwards)])` (grafo con le
+    squash). Trovato al CHECKPOINT 1.
 - **Note per i task successivi**:
   - finché non esiste `DecommissioningRecordSerializer` (T010), cancellare un record (o un asset
     con record) dentro una richiesta fallisce con `SerializerNotFound` nella coda eventi di NetBox;
@@ -26,6 +31,9 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
     seriale (P6, §2.1 della specifica) arrivano con la ricerca in T009.
   - le fixture DCIM dei test di R1 stanno in `tests/dcim_fixtures.py` (`DcimFixturesMixin`, fuso
     `Europe/Rome` e `timezone.now()` fissati in `setUp`).
+  - buchi di test emersi al CHECKPOINT 1, da coprire nei task successivi: assenza di `ObjectChange`
+    nel comando `backfill_last_related_info` (D12); vincolo di unicità 0:1 a livello di database
+    (`IntegrityError` con `save()` senza `full_clean()`), oggi provato solo in nbshell.
 
 ## Checklist
 
@@ -35,8 +43,8 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
 - [x] T004 Specifica, `CLAUDE.md`, D12, prompt versionato, domande aperte risolte (passo 1) — requisiti: §2.1 prompt — test: — — commit `14d8244`, `3a4a292`, `afb9798`, `de519c5` — 2026-10-20
 - [x] T005 Configurazione R4, parte di base: chiavi in `default_settings`, helper in `settings.py`, controllo all'avvio (passo 2) — requisiti: R4 — test: tests/test_decommissioning_settings.py — commit `275ab02` — 2026-10-20
 - [x] T006 Modelli e migrazione `0009`: `Asset.last_related_info`, `AssetType.decommissioning_requirements`, `DecommissioningRecord`, V0–V7, cascade e changelog, `EXCLUDED_MODELS` (passo 3) — requisiti: R2 (modello), R3 (modello, V0–V7), R5 (migrazione), D2, D3, D6, D7 — test: tests/test_decommissioning_record.py, tests/test_contacts.py — commit `b22bff6` — 2026-10-20
-- [x] T007 `last_related_info`: calcolo al salvataggio (D10), `pre_delete` su Device e Module (D11), comando `backfill_last_related_info` (D12) (passo 4) — requisiti: R1, D5, D8, D10, D11, D12 — test: tests/test_last_related_info.py, tests/test_backfill_last_related_info.py — commit (pending) — 2026-10-20
-- [ ] CHECKPOINT 1 — schema della migrazione (`sqlmigrate inventory_monitor 0009`), `migrate` avanti e indietro, elenco dei test; attesa dell'ok prima dell'interfaccia (checkpoint A del prompt)
+- [x] T007 `last_related_info`: calcolo al salvataggio (D10), `pre_delete` su Device e Module (D11), comando `backfill_last_related_info` (D12) (passo 4) — requisiti: R1, D5, D8, D10, D11, D12 — test: tests/test_last_related_info.py, tests/test_backfill_last_related_info.py — commit `83525a9` — 2026-10-20
+- [x] CHECKPOINT 1 — schema della migrazione (`sqlmigrate inventory_monitor 0009`), `migrate` avanti e indietro, elenco dei test; attesa dell'ok prima dell'interfaccia (checkpoint A del prompt) — ok dell'utente — 2026-10-20
 - [ ] T008 Form, filtri, tabelle: AssetType (form, filtri, tabella, CSV), record (form, filtri, tabella, import), colonne e filtro `has_decommissioning_record` su Asset, campi nuovi in `AssetForm`/`AssetBulkImportForm` (passo 5) — requisiti: R2, R3, R4, D3, D4 — test: tests/test_asset_type_decommissioning.py, tests/test_decommissioning_views.py, tests/test_decommissioning_settings.py
 - [ ] T009 Viste, URL, template, menu, ricerca: viste generiche, `decommissioningrecord.html`, pannelli in `asset.html`/`assettype.html`, badge, `navigation.py`, `search.py` (P6) (passo 6) — requisiti: R1 (pannello), R3, R4, D9 — test: tests/test_decommissioning_views.py, tests/test_decommissioning_record.py, tests/test_navigation.py
 - [ ] T010 API REST: serializer, viewset, router, campi su Asset e AssetType, `/api/schema/` (passo 7) — requisiti: R1, R2, R3, R4 — test: tests/test_decommissioning_api.py; togliere il `mock.patch("core.signals.enqueue_event")` da `test_delete_asset_cascades_with_two_objectchanges`
