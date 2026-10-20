@@ -77,6 +77,17 @@ class BackfillLastRelatedInfoTest(DcimFixturesMixin, TestCase):
         self.assertIn("Assets updated: 0", output)
         self.assertIn("Already filled (skipped): 1", output)
 
+    def test_no_object_change(self):
+        """D12: bulk_update() logs no ObjectChange for the filled assets; the summary is the trace."""
+        filled = self.make_asset("SN-DEV", self.device)
+        control = self.make_asset("SN-CONTROL")
+        with self.change_logging() as changes:
+            self.backfill()
+            # Logging was on: a plain save of an asset is in the change log
+            control.save()
+        self.assertEqual(self.info(filled), self.full_snapshot())
+        self.assertEqual(list(changes.values_list("changed_object_id", flat=True)), [control.pk])
+
     def test_dry_run_writes_nothing(self):
         asset = self.make_asset("SN-DEV", self.device)
         output = self.backfill("--dry-run")

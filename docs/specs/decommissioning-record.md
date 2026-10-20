@@ -603,55 +603,67 @@ Nessuna dipendenza nuova. `RMA.update_asset_serial()` e gli script GARR non si t
 
 ## 9. Requisito → test
 
-Nomi indicativi; la tabella definitiva con i nomi reali sarà aggiornata nella verifica finale.
+Tabella definitiva (T013, 2026-10-20). I file sono in `inventory_monitor/tests/`; *rec* =
+`test_decommissioning_record.py`, *views* = `test_decommissioning_views.py`, *api* =
+`test_decommissioning_api.py`, *gql* = `test_decommissioning_graphql.py`, *lri* =
+`test_last_related_info.py`, *backfill* = `test_backfill_last_related_info.py`, *settings* =
+`test_decommissioning_settings.py`, *type* = `test_asset_type_decommissioning.py`, *nis* =
+`test_nis_relevant.py`. Suite completa: 327 test, verde su database di test ricreato da zero.
 
-| Requisito / regola | File di test | Test |
-| --- | --- | --- |
-| §3.4 prompt (0001 su DB vuoto) | `test_migrations.py` | `SquashedInitialMigrationEmptyDatabaseTest` (già presente) |
-| R4 predefiniti / override | `test_decommissioning_settings.py` | `test_defaults`, `test_override_replaces_list` |
-| R4 config invalida | idem | `test_invalid_*` (duplicati, vuoti, > 50, non coppie, etichetta) |
-| R4 valore dismesso | idem | preservato al salvataggio, badge, `_configured=false` API/filtro, form istanza sì / nuovo no, ritorno in config |
-| R1 formato | `test_last_related_info.py` | `test_snapshot_format_full`, `test_snapshot_optional_lines_omitted` |
-| R1 Device / Module | idem | `test_assign_device`, `test_assign_module_uses_device` |
-| R1 non-Device | idem | `test_site_location_rack_never_written` |
-| R1 invariato / manuale | idem | `test_unchanged_assignment_keeps_value` |
-| R1 cambio Device | idem | `test_device_change_overwrites` |
-| D10 | idem | `test_leaving_device_refreshes_outgoing_snapshot` |
-| R1 cancellazione Device, N+1 | idem | `test_device_delete_updates_assets_constant_queries` (2 vs 5) |
-| R1 cancellazione Device, IP primario sulle sue interfacce (T014) | idem | `test_device_delete_keeps_primary_ips_of_its_interfaces` |
-| R1 dopo cancellazione | idem | `test_orphan_keeps_last_related_info` |
-| D11 | idem | `test_module_delete_updates_assets_constant_queries` |
-| D12 | `test_backfill_last_related_info.py` | popola Device e Module, non tocca campi pieni né non-Device, salta orfani, idempotente, `--dry-run` non scrive, riepilogo, query costanti (2 vs 5 asset) |
-| R1 + RMA | idem | `test_rma_update_asset_serial` |
-| R2 | `test_asset_type_decommissioning.py` | form/CSV/API accettano/rifiutano, valore dismesso preservato, filtri, colonna |
-| R3 modello, cascata | `test_decommissioning_record.py` | `test_delete_record_keeps_asset`, `test_delete_asset_cascades_with_two_objectchanges`, `test_contact_protect` |
-| V0 | idem + views + api | form, CSV con `id`, API `PATCH` → `asset_immutable` |
-| V1 | idem | futuro rifiutato, oggi accettato (fuso `Europe/Rome`) |
-| V2 | idem | ordine errato rifiutato per ogni coppia, stesso giorno ammesso |
-| V3 | idem | data senza metodo, metodo senza data |
-| V4 | idem | non configurato rifiutato, dismesso invariato ammesso |
-| V5 | idem | data tecnica con *In Use*, smaltimento con *Retired* rifiutati |
-| V6 | idem + views + api | `full_clean()`, `AssetForm`, bulk edit POST, CSV con `id`, API `PATCH` → 400 |
-| V7 | idem | *Retired*/*Disposed* senza record salvabile in qualsiasi stato |
-| 0:1 | views + api | secondo record rifiutato da form e API |
-| D2 | `test_contacts.py` | `EXCLUDED_MODELS` |
-| D4 | `test_decommissioning_views.py` | import per ID, seriale univoco, seriale ambiguo, nome, nome ambiguo, ID+seriale |
-| D7 | `test_decommissioning_record.py` | reverse accessor sui Contact |
-| D9 | `test_decommissioning_views.py` | pannello senza `view_decommissioningrecord` |
-| Viste | idem | lista, dettaglio, add con `?asset=`, edit con asset bloccato, delete, bulk edit, bulk delete |
-| Filtri | idem / api | uno per filtro, `has_decommissioning_record=false` |
-| Ricerca | `test_decommissioning_record.py` | per documento, per seriale, dopo cambio seriale (P6) |
-| Menu | `test_navigation.py` | esistente |
-| API | `test_decommissioning_api.py` | CRUD, `brief`, annidato su Asset, `last_related_info`, `/api/schema/` |
-| GraphQL | `test_decommissioning_graphql.py` | query singola, lista, `decommissioning_record` su asset, filtri (date, metodo, operatori, `*_configured`, `has_decommissioning_record`), `*_configured` con valore dismesso |
-| N+1 | views + api | lista record UI/API, lista asset con colonne nuove: 2 vs 5 |
-| R5 | — | `makemigrations --check`, `migrate 0008` e ritorno (riepilogo) |
-| R6 modello | `test_nis_relevant.py` | predefinito `False` su asset nuovo, salvataggio `True` |
-| R6 form / bulk edit / CSV | idem | `AssetForm` imposta e toglie; bulk edit `true`/`false`/invariato; CSV creazione con e senza colonna, aggiornamento senza colonna non cambia il valore |
-| R6 filtri | idem | `nis_relevant=true/false` su Asset; `asset_nis_relevant` sui record |
-| R6 tabelle e scheda | idem | colonna nella lista Asset (di default), colonna opzionale e export CSV dei record, riga nella scheda Asset e nel record |
-| R6 API | idem | lettura in lista e dettaglio, `PATCH`, assente in `brief`, `/api/schema/` |
-| R6 GraphQL | idem | campo su asset, filtro `nis_relevant` |
+| Requisito / regola | Test (file: nomi) |
+| --- | --- |
+| §3.4 prompt (0001 su DB vuoto) | `test_migrations.py`: `SquashedInitialMigrationEmptyDatabaseTest` (`test_copy_to_assigned_object_without_assets`, `test_reverse_migration_without_assets`) |
+| R1 formato (§3.1) | lri: `test_snapshot_format_full`, `test_snapshot_optional_lines_omitted`, `test_snapshot_has_no_trailing_newline_and_no_blank_lines`, `test_unnamed_device`, `test_rack_position_variants`, `test_primary_ip_value_may_contain_colons` |
+| R1 lingua (Q15) | lri: `test_labels_are_english_in_any_language`, `test_assign_device_in_another_language`, `test_device_delete_in_another_language`; backfill: `test_english_in_any_language` |
+| D8 | lri: `test_snapshot_date_is_local_time_whole_seconds`; rec: `test_today_is_the_local_date` |
+| R1 assegnazione Device / Module | lri: `test_assign_device`, `test_assign_device_to_existing_asset`, `test_assign_module_uses_device`, `test_snapshot_of_assignment_costs_one_query`, `test_snapshot_of_assignment_none_for_non_device_or_missing` |
+| R1 non-Device | lri: `test_site_location_rack_never_written` |
+| R1 invariato / scritto a mano / vuoto | lri: `test_unchanged_assignment_keeps_value`, `test_unchanged_assignment_empty_field_is_filled`, `test_value_given_with_device_assignment_is_overwritten`, `test_unchanged_assignment_costs_no_query` |
+| R1 cambio Device | lri: `test_device_change_overwrites` |
+| R1 `update_fields`, orfano | lri: `test_update_fields_without_assignment_skips`, `test_update_fields_with_assignment_writes_the_field`, `test_orphan_assignment_changes_nothing` |
+| R1 + RMA | lri: `test_rma_update_asset_serial` |
+| R1 interfaccia e API | views: `test_last_related_info_panel`, `test_last_related_info_panel_empty`, `test_asset_form_last_related_info`, `test_asset_import_last_related_info`; api: `test_nested_record_and_last_related_info`, `test_last_related_info_writable`; gql: `test_record_and_last_related_info`, `test_filter_last_related_info` |
+| D10 | lri: `test_leaving_device_refreshes_outgoing_snapshot`, `test_leaving_module_refreshes_outgoing_snapshot` |
+| D11 (cancellazione Device / Module) | lri: `test_device_delete_updates_direct_and_module_assets`, `test_device_delete_updates_assets_constant_queries`, `test_orphan_keeps_last_related_info`, `test_module_delete_updates_assets`, `test_module_delete_updates_assets_constant_queries` |
+| T014 (IP primario alla cancellazione) | lri: `test_device_delete_keeps_primary_ips_of_its_interfaces` |
+| D5 | lri: `test_no_object_change_for_bulk_update` (con change logging attivo, T013) |
+| D12 | backfill: `test_fills_device_and_module_assets`, `test_leaves_filled_and_non_device_assets_alone`, `test_skips_orphans`, `test_idempotent`, `test_dry_run_writes_nothing`, `test_summary`, `test_constant_queries`, `test_no_object_change` (T013) |
+| R2 | type: `AssetTypeFormTest`, `AssetTypeBulkEditFormTest`, `AssetTypeBulkImportFormTest`, `AssetTypeFilterTest`, `AssetTypeTableTest`; rec: `AssetTypeDecommissioningRequirementsTest`; views: `AssetTypePageDecommissioningTest`, `test_requirements_reminder_from_initial_asset`, `test_requirements_reminder_from_instance`, `test_no_reminder_without_requirements`; api: `AssetTypeAPIDecommissioningTest`; gql: `AssetTypeGraphQLDecommissioningTest` |
+| R3 modello | rec: `test_minimal_record_is_valid`, `test_str_uses_asset_without_pk`, `test_asset_reverse_accessor`, `test_ordering_newest_first_undated_last`, `test_sanitization_method_display_helpers`, `test_asset_last_related_info_defaults_to_empty` |
+| R3 cancellazioni e cascata | rec: `test_delete_record_keeps_asset`, `test_delete_asset_cascades_with_two_objectchanges`, `test_contact_protect`; views: `test_delete_keeps_asset`; api: `test_delete_keeps_asset` |
+| V0 | rec: `test_asset_cannot_change_on_existing_record`, `test_same_asset_is_accepted`; views: `test_asset_locked_on_edit`, `test_edit_keeps_asset`, `test_update_with_other_asset_rejected`, `test_update_with_other_asset_by_serial_rejected`, `test_update_with_same_asset`; api: `test_patch_asset_immutable`, `test_patch_asset_unchanged_accepted` |
+| V1 | rec: `test_future_date_rejected`, `test_today_accepted`, `test_today_is_the_local_date` |
+| V2 | rec: `test_wrong_order_rejected`, `test_same_day_accepted`, `test_right_order_accepted` |
+| V3 | rec: `test_date_without_method`, `test_method_without_date`, `test_both_accepted` |
+| V4 | rec: `SanitizationMethodConfiguredTest` (4 test); views: `test_removed_method_selectable_only_for_its_record`, `test_removed_method_preserved_when_editing_another_field`, `test_removed_method_rejected_on_new_record`, `test_unconfigured_method_rejected`, `test_update_preserves_removed_method`; api: `test_sanitization_method_not_configured_rejected`, `DecommissioningRecordRemovedMethodAPITest` |
+| V5 | rec: `test_technical_date_requires_retired_or_disposed`, `test_technical_date_accepted_when_retired_or_disposed`, `test_disposal_date_requires_disposed`, `test_disposal_date_accepted_when_disposed` |
+| V6 | rec: `AssetLifecycleGuardTest` (`test_decommissioned_asset_cannot_go_back`, `test_decommissioned_asset_can_be_disposed`, `test_disposed_asset_cannot_go_back`, `test_both_dates_report_disposed`, `test_other_changes_on_decommissioned_asset_allowed`, `test_new_asset_runs_no_record_query`); views: `test_v6_asset_form`, `test_v6_asset_import_update`, `test_v6_asset_bulk_edit`; api: `test_v6_patch_rejected` |
+| V7 | rec: `test_retired_or_disposed_without_record_is_free`, `test_record_without_dates_does_not_block`; nis: `test_no_rule_on_lifecycle` |
+| P2 (errori aggregati) | rec: `test_errors_on_several_fields`; views: `test_model_rules_reported_on_fields`, `test_add_reports_model_rules`; api: `test_create_reports_model_rules_on_fields` |
+| 0:1 | rec: `test_one_record_per_asset`, `test_one_record_per_asset_in_the_database`; views: `test_second_record_on_same_asset_rejected`; api: `test_second_record_on_same_asset_rejected` |
+| R4 predefiniti / override | settings: `DefaultChoicesTest`, `OverrideChoicesTest` |
+| R4 configurazione invalida | settings: `ValidateChoiceSettingsTest` (13 test), `PluginConfigValidateTest` |
+| R4 valore dismesso | settings: `ConfiguredValueTest`, `ChoiceDisplayTest`; views: `test_badge_for_removed_method`, `test_detail_badge_for_removed_method`, `test_record_badge_for_removed_method`, `test_sanitization_method_not_configured`; api: `DecommissioningRecordRemovedMethodAPITest`; gql: `DecommissioningRecordRemovedMethodGraphQLTest`; type: `test_removed_value_*`, `test_filter_not_configured_finds_removed_value` |
+| D2 | `test_contacts.py`: `test_excluded_models_do_not_declare_contacts_feature` (`DecommissioningRecord` in `EXCLUDED_MODELS`) |
+| D3 | views: `test_asset_locked_on_edit`, `test_no_asset_field` (bulk edit) |
+| D4 | views: `DecommissioningRecordImportTest` (`test_asset_by_id`, `test_asset_by_unique_serial`, `test_asset_by_ambiguous_serial_rejected`, `test_asset_by_id_and_serial_rejected`, `test_asset_required_on_create`, `test_operators_by_id_and_name`, `test_operator_by_name`, `test_operator_by_ambiguous_name_rejected`, `test_operator_by_id_and_name_rejected`, `test_update_without_asset_column`), `test_bulk_import` |
+| D7 | rec: `test_operator_reverse_accessors` |
+| D9 | views: `test_without_view_permission_only_presence`, `test_without_view_permission_no_record`, `test_no_add_button_without_add_permission`, `test_record_without_change_or_delete_permission` |
+| Viste | views: `DecommissioningRecordViewsTest` (`test_list`, `test_detail`, `test_detail_requires_permission`, `test_add_prefills_asset_from_query`, `test_add`, `test_edit_keeps_asset`, `test_delete_keeps_asset`, `test_bulk_edit`, `test_bulk_delete`, `test_bulk_import`), `AssetPageDecommissioningTest` |
+| Form e filtri | views: `DecommissioningRecordFormTest`, `DecommissioningRecordBulkEditFormTest`, `DecommissioningRecordFilterTest`, `test_has_decommissioning_record_filter`; api: `test_filters`, `test_filter_has_decommissioning_record` |
+| Tabelle ed export del Registro | views: `test_columns`, `test_register_values`, `test_list_export_has_register_columns`, `test_asset_table_optional_columns`, `test_asset_table_column_values`, `test_asset_table_links_the_record` |
+| Ricerca (P6, T017) | rec: `SearchTest` (`test_by_disposal_document`, `test_by_asset_serial`, `test_serial_result_has_a_readable_label`, `test_serial_change_reindexes_record`, `test_unchanged_serial_runs_no_record_query`) |
+| Menu | views: `test_menu_entry`; `test_navigation.py`: `test_all_menu_links_reverse` |
+| API | api: `DecommissioningRecordAPITest` (`test_list`, `test_brief`, `test_detail`, `test_create`, `test_patch`, …), `AssetAPIDecommissioningTest`, `OpenAPISchemaTest` |
+| GraphQL (Q8) | gql: `DecommissioningRecordGraphQLTest`, `AssetGraphQLDecommissioningTest`, `AssetTypeGraphQLDecommissioningTest`, `test_no_permission_sees_nothing` |
+| N+1 | views: `test_list_constant_queries`, `test_asset_list_constant_queries_with_decommissioning_columns`; api: `test_list_constant_queries`, `test_list_records_add_no_queries`, `test_nested_asset_keeps_its_fields_with_prefetch`; lri e backfill: `*_constant_queries` |
+| R5 | `makemigrations --check` (nessuna modifica), `migrate inventory_monitor 0008` e ritorno sul database di sviluppo (T013, 2026-10-20) |
+| R6 modello | nis: `test_default_is_false`, `test_saved_true`, `test_no_rule_on_lifecycle` |
+| R6 form / bulk edit / CSV | nis: `NisRelevantFormTest`, `NisRelevantBulkEditTest`, `NisRelevantImportTest`, `test_bulk_edit` |
+| R6 filtri | nis: `test_filter_form_field`, `test_asset_filter`, `test_record_filter` |
+| R6 tabelle e schede | nis: `NisRelevantTableTest`, `test_asset_page`, `test_record_page`, `test_asset_list_export` |
+| R6 API | nis: `NisRelevantAPITest` (`test_list`, `test_detail`, `test_not_in_brief`, `test_filter`, `test_patch`, `test_schema`) |
+| R6 GraphQL | nis: `NisRelevantGraphQLTest` (`test_field`, `test_filter`) |
 
 ---
 

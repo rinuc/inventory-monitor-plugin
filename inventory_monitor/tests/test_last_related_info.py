@@ -327,5 +327,8 @@ class DeviceDeletionTest(LastRelatedInfoTestCase):
 
         device, _, _ = self.populate(2)
         before = ObjectChange.objects.filter(changed_object_type__model="asset").count()
-        device.delete()
+        with self.change_logging() as changes:
+            device.delete()
         self.assertEqual(ObjectChange.objects.filter(changed_object_type__model="asset").count(), before)
+        # Logging was on: the Device deletion itself is in the change log
+        self.assertTrue(changes.filter(changed_object_type__model="device", action="delete").exists())

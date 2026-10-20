@@ -1,6 +1,8 @@
 """DCIM objects shared by the last_related_info tests (R1, D10–D12)."""
 
 import datetime
+import uuid
+from contextlib import contextmanager
 from unittest import mock
 
 from dcim.models import (
@@ -15,10 +17,13 @@ from dcim.models import (
     Rack,
     Site,
 )
-from django.test import override_settings
+from core.models import ObjectChange
+from django.test import RequestFactory, override_settings
 from django.utils import translation
 from ipam.models import IPAddress
+from netbox.context_managers import event_tracking
 from tenancy.models import Tenant
+from users.models import User
 
 # 12:00 UTC on 2026-10-20 is 14:00 in Europe/Rome (CEST): snapshot_date is local time (D8)
 NOW = datetime.datetime(2026, 10, 20, 12, 0, 0, 123456, tzinfo=datetime.UTC)
@@ -69,6 +74,15 @@ class DcimFixturesMixin:
         cls.module_bay = ModuleBay.objects.create(device=cls.device, name="Bay 1")
         cls.module_type = ModuleType.objects.create(manufacturer=manufacturer, model="LC-1")
         cls.module = Module.objects.create(device=cls.device, module_bay=cls.module_bay, module_type=cls.module_type)
+
+    @contextmanager
+    def change_logging(self):
+        """Run as a web request does, so that NetBox logs ObjectChanges; yields the request's changes."""
+        request = RequestFactory().get("/")
+        request.id = uuid.uuid4()
+        request.user = User.objects.create_user(username=f"user-{request.id}")
+        with event_tracking(request):
+            yield ObjectChange.objects.filter(request_id=request.id)
 
     def in_italian(self):
         """Activate Italian, where NetBox translates the Device status label (Q15)."""

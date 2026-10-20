@@ -6,7 +6,8 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
 
 ## Stato
 
-- **Task corrente**: T013 — verifica finale
+- **Task corrente**: nessuno, piano completato il 2026-10-20 (restano i punti fuori piano e i problemi aperti
+  qui sotto, Q10 della specifica)
 - **CHECKPOINT 2** eseguito il 2026-10-20 da Claude in Chrome sull'harness su richiesta dell'utente
   (utenti `cp2-full`, `cp2-viewer`, `cp2-noregistry`): 14 passi e R6 riusciti; T017 e T018 (Q15)
   corretti e verificati sull'harness dopo la ricostruzione dell'immagine; ok dell'utente lo stesso giorno
@@ -16,7 +17,7 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
   (basta l'Owner standard di NetBox?), i valori `Kind` del Journal (configurazione dell'harness,
   `FIELD_CHOICES['extras.JournalEntry.kind+']`, non codice del plugin), `technical_decommission_operator`
   come testo invece di Contact
-- **Ultimo task completato**: T012 — documentazione e versione `15.3.0`, commit (pending), 2026-10-20
+- **Ultimo task completato**: T013 — verifica finale, commit (pending), 2026-10-20
 - **Checkpoint raggiunti**: CHECKPOINT 1, CHECKPOINT 3, CHECKPOINT 2 (tutti 2026-10-20)
 - **Problemi aperti** (fuori ambito, da aprire come issue separate; nessuno blocca il piano):
   - chiave `FIELD_CHOICES` documentata nel README per `lifecycle_status` senza effetto (D6);
@@ -55,9 +56,9 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
   - i test HTTP delle viste usano `utilities.testing.TestCase` di NetBox: gli operatori si scelgono
     solo tra i Contact visibili all'utente, quindi servono `tenancy.view_contact` nei test che li
     impostano; la ricerca indicizza al commit, in un solo flush per transazione (vedi `SearchTest`).
-  - buchi di test emersi al CHECKPOINT 1, da coprire nei task successivi: assenza di `ObjectChange`
-    nel comando `backfill_last_related_info` (D12). Il vincolo 0:1 a livello di database è coperto
-    da T010 (`test_one_record_per_asset_in_the_database`).
+  - buchi di test emersi al CHECKPOINT 1: entrambi coperti (vincolo 0:1 nel database in T010,
+    `test_one_record_per_asset_in_the_database`; assenza di `ObjectChange` del backfill in T013,
+    `test_no_object_change`).
 
 ## Checklist
 
@@ -98,5 +99,9 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
 - [x] T012 Documentazione e versione: `docs/decommissioning-record.md` (incluso `nis_relevant`; sezione sul
   backfill di `last_related_info`: cos'è, quando eseguirlo cioè una volta dopo l'aggiornamento a `0009`, comando
   standalone e nell'harness Docker, `--dry-run`, riepilogo, campi pieni non sovrascritti, orfani saltati, nessun
-  `ObjectChange`), README (incluse le chiavi R4), CHANGELOG `15.3.0` (incluso R6 e il backfill tra le note di aggiornamento), `version.py` (passo 9) — requisiti: R4, R5, R6, D1, D5, D6, D12 — test: — — commit (pending) — 2026-10-20
-- [ ] T013 Verifica finale: suite su database di test ricreato, `makemigrations --check`, ruff, `migrate 0008` e ritorno, tabella requisito → test definitiva, `git log` (passo 10) — requisiti: §6 prompt — test: suite completa
+  `ObjectChange`), README (incluse le chiavi R4), CHANGELOG `15.3.0` (incluso R6 e il backfill tra le note di aggiornamento), `version.py` (passo 9) — requisiti: R4, R5, R6, D1, D5, D6, D12 — test: — — commit `95de273` — 2026-10-20
+- [x] T013 Verifica finale: suite su database di test ricreato, `makemigrations --check`, ruff, `migrate 0008` e ritorno, tabella requisito → test definitiva, `git log` (passo 10) — requisiti: §6 prompt — test: suite completa
+  (327 test verdi anche senza `--keepdb`, database creato da zero). Coperto il buco di CHECKPOINT 1 (D12,
+  `test_no_object_change`) e rafforzato `test_no_object_change_for_bulk_update` (D5), che senza contesto di
+  richiesta passava comunque: ora entrambi girano con change logging attivo (`DcimFixturesMixin.change_logging()`)
+  e falliscono se si sostituisce la scrittura in blocco con `save()` (provato) — commit (pending) — 2026-10-20
