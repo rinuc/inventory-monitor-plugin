@@ -490,11 +490,22 @@ risultato: numeri non vuoti, distinti, ordinati), altrimenti la query di prima.
 - `InventoryMonitorDecommissioningRecordType(PrimaryObjectType)` (`fields="__all__"`), `asset` e
   operatori con `Annotated[..., strawberry.lazy(...)]`.
 - `InventoryMonitorDecommissioningRecordFilter(OwnerFilterMixin, PrimaryModelFilter)` con filtri per
-  le date, `sanitization_method`, operatori.
+  le date, `sanitization_method`, `disposal_document`, `asset`/`asset_id`, operatori (`ContactFilter`
+  e `*_id`) e `sanitization_method_configured` (Q8).
 - Query `inventory_monitor_decommissioning_record` e `inventory_monitor_decommissioning_record_list`
   in `graphql/schema.py`, aggiunte a `schema` in `graphql/__init__.py`.
 - `InventoryMonitorAssetType`: `last_related_info: str`, `decommissioning_record:
   Annotated[...] | None`. `InventoryMonitorAssetTypeType`: `decommissioning_requirements: str`.
+- Campi booleani in sola lettura `sanitization_method_configured` sul record e
+  `decommissioning_requirements_configured` su `AssetType`, calcolati con `settings.is_configured()`
+  come nel serializer (§5.4).
+- `InventoryMonitorAssetFilter`: `last_related_info`, `decommissioning_record` (filtro annidato) e
+  `has_decommissioning_record` (come nel filterset). `InventoryMonitorAssetTypeFilter`:
+  `decommissioning_requirements` e `decommissioning_requirements_configured`.
+- **Q8, esito**: i filtri `*_configured` sono metodi `@strawberry_django.filter_field` che
+  restituiscono un `Q`, lo stesso pattern di NetBox (`dcim/graphql/filters.py`, `cabled`). Il `Q`
+  viene da `helpers.configured_q()`, usato anche da `helpers.filter_configured()` dei filterset:
+  una sola definizione per UI, API e GraphQL.
 
 ---
 
@@ -577,7 +588,7 @@ Nomi indicativi; la tabella definitiva con i nomi reali sarà aggiornata nella v
 | Ricerca | `test_decommissioning_record.py` | per documento, per seriale, dopo cambio seriale (P6) |
 | Menu | `test_navigation.py` | esistente |
 | API | `test_decommissioning_api.py` | CRUD, `brief`, annidato su Asset, `last_related_info`, `/api/schema/` |
-| GraphQL | `test_decommissioning_graphql.py` | query singola, lista, `decommissioning_record` su asset |
+| GraphQL | `test_decommissioning_graphql.py` | query singola, lista, `decommissioning_record` su asset, filtri (date, metodo, operatori, `*_configured`, `has_decommissioning_record`), `*_configured` con valore dismesso |
 | N+1 | views + api | lista record UI/API, lista asset con colonne nuove: 2 vs 5 |
 | R5 | — | `makemigrations --check`, `migrate 0008` e ritorno (riepilogo) |
 

@@ -9,6 +9,7 @@ from .types import (
     InventoryMonitorAssetTypeType,
     InventoryMonitorContractorType,
     InventoryMonitorContractType,
+    InventoryMonitorDecommissioningRecordType,
     InventoryMonitorExternalInventoryType,
     InventoryMonitorInvoiceType,
     InventoryMonitorProbeType,
@@ -68,3 +69,11 @@ class InventoryMonitorProbeQuery:
 class InventoryMonitorRMAQuery:
     inventory_monitor_rma: InventoryMonitorRMAType = strawberry_django.field()
     inventory_monitor_rma_list: List[InventoryMonitorRMAType] = strawberry_django.field()
+
+
+@strawberry.type(name="Query")
+class InventoryMonitorDecommissioningRecordQuery:
+    inventory_monitor_decommissioning_record: InventoryMonitorDecommissioningRecordType = strawberry_django.field()
+    inventory_monitor_decommissioning_record_list: List[InventoryMonitorDecommissioningRecordType] = (
+        strawberry_django.field()
+    )

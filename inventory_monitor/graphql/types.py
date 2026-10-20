@@ -11,9 +11,10 @@ from dcim.graphql.types import (
 )
 from extras.graphql.mixins import ContactsMixin as GQLContactsMixin
 from netbox.graphql.types import NetBoxObjectType, PrimaryObjectType
-from tenancy.graphql.types import TenantType
+from tenancy.graphql.types import ContactType, TenantType
 
 import inventory_monitor.models as models
+from inventory_monitor.settings import DECOMMISSIONING_REQUIREMENTS_CHOICES, SANITIZATION_METHOD_CHOICES, is_configured
 
 from .enums import (
     InventoryMonitorAssignmentStatusEnum,
@@ -27,6 +28,7 @@ from .filters import (
     InventoryMonitorAssetTypeFilter,
     InventoryMonitorContractFilter,
     InventoryMonitorContractorFilter,
+    InventoryMonitorDecommissioningRecordFilter,
     InventoryMonitorExternalInventoryFilter,
     InventoryMonitorInvoiceFilter,
     InventoryMonitorProbeFilter,
@@ -99,6 +101,13 @@ class InventoryMonitorAssetType(GQLContactsMixin, PrimaryObjectType):
     # RMAs relationship
     rmas: List[Annotated["InventoryMonitorRMAType", strawberry.lazy("inventory_monitor.graphql.types")]]
 
+    # Decommissioning
+    last_related_info: str
+    decommissioning_record: (
+        Annotated["InventoryMonitorDecommissioningRecordType", strawberry.lazy("inventory_monitor.graphql.types")]
+        | None
+    )
+
 
 @strawberry_django.type(models.AssetType, fields="__all__", filters=InventoryMonitorAssetTypeFilter)
 class InventoryMonitorAssetTypeType(NetBoxObjectType):
@@ -106,9 +115,14 @@ class InventoryMonitorAssetTypeType(NetBoxObjectType):
     slug: str
     description: str
     color: str
+    decommissioning_requirements: str
 
     # Assets relationship
     assets: List[Annotated["InventoryMonitorAssetType", strawberry.lazy("inventory_monitor.graphql.types")]]
+
+    @strawberry_django.field
+    def decommissioning_requirements_configured(self) -> bool:
+        return is_configured(DECOMMISSIONING_REQUIREMENTS_CHOICES, self.decommissioning_requirements)
 
 
 @strawberry_django.type(models.AssetService, fields="__all__", filters=InventoryMonitorAssetServiceFilter)
@@ -212,3 +226,23 @@ class InventoryMonitorRMAType(GQLContactsMixin, PrimaryObjectType):
 
     # Related asset
     asset: Annotated["InventoryMonitorAssetType", strawberry.lazy("inventory_monitor.graphql.types")]
+
+
+@strawberry_django.type(
+    models.DecommissioningRecord, fields="__all__", filters=InventoryMonitorDecommissioningRecordFilter
+)
+class InventoryMonitorDecommissioningRecordType(PrimaryObjectType):
+    technical_decommission_date: str | None  # DateField as string
+    sanitization_date: str | None  # DateField as string
+    sanitization_method: str
+    disposal_date: str | None  # DateField as string
+    disposal_document: str
+
+    # Related objects
+    asset: Annotated["InventoryMonitorAssetType", strawberry.lazy("inventory_monitor.graphql.types")]
+    technical_decommission_operator: Annotated["ContactType", strawberry.lazy("tenancy.graphql.types")] | None
+    sanitization_operator: Annotated["ContactType", strawberry.lazy("tenancy.graphql.types")] | None
+
+    @strawberry_django.field
+    def sanitization_method_configured(self) -> bool:
+        return is_configured(SANITIZATION_METHOD_CHOICES, self.sanitization_method)

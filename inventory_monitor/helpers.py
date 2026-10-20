@@ -241,18 +241,23 @@ class ConfiguredChoiceColumn(django_tables2.Column):
         return choice_display(self.choice_key, value)
 
 
-def filter_configured(queryset, field_name, choice_key, value):
-    """Filter on whether a field holds a value of a configurable choice list (R4).
+def configured_q(field_name, choice_key, value):
+    """Q for whether a field holds a value of a configurable choice list (R4).
 
     False finds the values removed from the configuration; an empty field is
     neither, since there is nothing to fix.
     """
-    if value is None:
-        return queryset
     configured = Q(**{f"{field_name}__in": [v for v, _label in get_choices(choice_key)]})
     if value:
-        return queryset.filter(configured)
-    return queryset.exclude(configured).exclude(**{field_name: ""})
+        return configured
+    return ~configured & ~Q(**{field_name: ""})
+
+
+def filter_configured(queryset, field_name, choice_key, value):
+    """Filter a queryset with configured_q(); None leaves it unfiltered."""
+    if value is None:
+        return queryset
+    return queryset.filter(configured_q(field_name, choice_key, value))
 
 
 # One badge per service, so the lines stay aligned with the Service Start,

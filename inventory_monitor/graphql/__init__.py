@@ -4,6 +4,7 @@ from .schema import (
     InventoryMonitorAssetTypeQuery,
     InventoryMonitorContractorQuery,
     InventoryMonitorContractQuery,
+    InventoryMonitorDecommissioningRecordQuery,
     InventoryMonitorExternalInventoryQuery,
     InventoryMonitorInvoiceQuery,
     InventoryMonitorProbeQuery,
@@ -20,4 +21,5 @@ schema = [
     InventoryMonitorInvoiceQuery,
     InventoryMonitorProbeQuery,
     InventoryMonitorRMAQuery,
+    InventoryMonitorDecommissioningRecordQuery,
 ]

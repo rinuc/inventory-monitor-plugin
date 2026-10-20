@@ -3,12 +3,15 @@ from typing import TYPE_CHECKING, Annotated
 
 import strawberry
 import strawberry_django
+from django.db.models import Q
 from netbox.graphql.filters import NetBoxModelFilter, PrimaryModelFilter
 from strawberry.scalars import ID
 from strawberry_django import BaseFilterLookup, FilterLookup, StrFilterLookup
 from tenancy.graphql.filter_mixins import ContactFilterMixin
 
 from inventory_monitor.graphql.filter_mixins import OwnerFilterMixin
+from inventory_monitor.helpers import configured_q
+from inventory_monitor.settings import DECOMMISSIONING_REQUIREMENTS_CHOICES, SANITIZATION_METHOD_CHOICES
 
 if TYPE_CHECKING:
     from core.graphql.filters import ContentTypeFilter
@@ -17,7 +20,7 @@ if TYPE_CHECKING:
         LocationFilter,
         SiteFilter,
     )
-    from tenancy.graphql.filters import TenantFilter
+    from tenancy.graphql.filters import ContactFilter, TenantFilter
 
     # Import the enum types
     from .enums import (
@@ -34,6 +37,7 @@ from inventory_monitor.models import (
     AssetType,
     Contract,
     Contractor,
+    DecommissioningRecord,
     ExternalInventory,
     Invoice,
     Probe,
@@ -49,6 +53,7 @@ __all__ = (
     "InventoryMonitorInvoiceFilter",
     "InventoryMonitorProbeFilter",
     "InventoryMonitorRMAFilter",
+    "InventoryMonitorDecommissioningRecordFilter",
 )
 
 
@@ -143,6 +148,17 @@ class InventoryMonitorAssetFilter(ContactFilterMixin, OwnerFilterMixin, PrimaryM
     # External Inventory number filter (related field)
     external_inventory_number: BaseFilterLookup[str] | None = strawberry_django.filter_field()
 
+    # Decommissioning
+    last_related_info: StrFilterLookup | None = strawberry_django.filter_field()
+    decommissioning_record: (
+        Annotated["InventoryMonitorDecommissioningRecordFilter", strawberry.lazy("inventory_monitor.graphql.filters")]
+        | None
+    ) = strawberry_django.filter_field()
+
+    @strawberry_django.filter_field
+    def has_decommissioning_record(self, value: bool, prefix: str) -> Q:
+        return Q(**{f"{prefix}decommissioning_record__isnull": not value})
+
 
 @strawberry_django.filter_type(AssetType, lookups=True)
 class InventoryMonitorAssetTypeFilter(NetBoxModelFilter):
@@ -150,6 +166,11 @@ class InventoryMonitorAssetTypeFilter(NetBoxModelFilter):
     slug: StrFilterLookup | None = strawberry_django.filter_field()
     description: StrFilterLookup | None = strawberry_django.filter_field()
     color: StrFilterLookup | None = strawberry_django.filter_field()
+    decommissioning_requirements: StrFilterLookup | None = strawberry_django.filter_field()
+
+    @strawberry_django.filter_field
+    def decommissioning_requirements_configured(self, value: bool, prefix: str) -> Q:
+        return configured_q(f"{prefix}decommissioning_requirements", DECOMMISSIONING_REQUIREMENTS_CHOICES, value)
 
 
 @strawberry_django.filter_type(AssetService, lookups=True)
@@ -279,3 +300,33 @@ class InventoryMonitorRMAFilter(ContactFilterMixin, OwnerFilterMixin, PrimaryMod
 
     # Custom filter for both serials (like in Django filterset)
     serial: BaseFilterLookup[str] | None = strawberry_django.filter_field()
+
+
+@strawberry_django.filter_type(DecommissioningRecord, lookups=True)
+class InventoryMonitorDecommissioningRecordFilter(OwnerFilterMixin, PrimaryModelFilter):
+    technical_decommission_date: strawberry.auto = strawberry_django.filter_field()
+    sanitization_date: strawberry.auto = strawberry_django.filter_field()
+    sanitization_method: StrFilterLookup | None = strawberry_django.filter_field()
+    disposal_date: strawberry.auto = strawberry_django.filter_field()
+    disposal_document: StrFilterLookup | None = strawberry_django.filter_field()
+
+    # Related object filters
+    asset: Annotated["InventoryMonitorAssetFilter", strawberry.lazy("inventory_monitor.graphql.filters")] | None = (
+        strawberry_django.filter_field()
+    )
+    asset_id: ID | None = strawberry_django.filter_field()
+
+    technical_decommission_operator: Annotated["ContactFilter", strawberry.lazy("tenancy.graphql.filters")] | None = (
+        strawberry_django.filter_field()
+    )
+    technical_decommission_operator_id: ID | None = strawberry_django.filter_field()
+
+    sanitization_operator: Annotated["ContactFilter", strawberry.lazy("tenancy.graphql.filters")] | None = (
+        strawberry_django.filter_field()
+    )
+    sanitization_operator_id: ID | None = strawberry_django.filter_field()
+
+    # Runtime configuration, so a method filter (R4, Q8)
+    @strawberry_django.filter_field
+    def sanitization_method_configured(self, value: bool, prefix: str) -> Q:
+        return configured_q(f"{prefix}sanitization_method", SANITIZATION_METHOD_CHOICES, value)
