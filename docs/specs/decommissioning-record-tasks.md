@@ -6,10 +6,12 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
 
 ## Stato
 
-- **Task corrente**: CHECKPOINT 2 — prova manuale da browser; da ripetere almeno il passo 9
-  (cancellazione del Device con IP primario) dopo T014, con l'immagine dell'harness ricostruita
+- **Task corrente**: CHECKPOINT 2 — prova manuale da browser; passo 9 ripetuto il 2026-10-20 dopo T014
+  sull'harness con l'immagine ricostruita, via `Device.delete()` in `nbshell` (stesso percorso di
+  vista e API): `primary_ip` resta nell'istantanea, assegnazione orfana. In attesa dell'ok
+  dell'utente. Dati di prova lasciati nell'harness: oggetti `CP2-*`, Asset `CP2SER01`
 - **Ultimo task completato**: T014 — istantanea alla cancellazione del Device con IP primario,
-  commit (pending), 2026-10-20
+  commit `49f1998`, 2026-10-20
 - **Checkpoint raggiunti**: CHECKPOINT 1 (2026-10-20)
 - **Problemi aperti** (fuori ambito, da aprire come issue separate; nessuno blocca il piano):
   - chiave `FIELD_CHOICES` documentata nel README per `lifecycle_status` senza effetto (D6);
@@ -70,7 +72,7 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
   passata a `pre_delete` (ha ancora `primary_ip4_id`; la riga IPAddress esiste fino alla fine dei `pre_delete`),
   numero di query costante. Trovato al CHECKPOINT 2, passo 9. Attuato: database per tutto, IP primari dall'istanza se
   azzerati nel database (il test esistente cancella un'istanza non aggiornata e vuole i valori del database) — requisiti: R1, D11 — test:
-  tests/test_last_related_info.py — commit (pending) — 2026-10-20
+  tests/test_last_related_info.py — commit `49f1998` — 2026-10-20
 - [ ] CHECKPOINT 2 — prova manuale da browser con lo scenario in 14 passi (checkpoint B del prompt); attesa dell'ok
 - [ ] T012 Documentazione e versione: `docs/decommissioning-record.md`, README (incluse le chiavi R4), CHANGELOG `15.3.0`, `version.py` (passo 9) — requisiti: R4, R5, D1, D5, D6, D12 — test: —
 - [ ] T013 Verifica finale: suite su database di test ricreato, `makemigrations --check`, ruff, `migrate 0008` e ritorno, tabella requisito → test definitiva, `git log` (passo 10) — requisiti: §6 prompt — test: suite completa
