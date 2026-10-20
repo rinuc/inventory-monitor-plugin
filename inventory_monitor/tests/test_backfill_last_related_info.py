@@ -36,6 +36,12 @@ class BackfillLastRelatedInfoTest(DcimFixturesMixin, TestCase):
         self.assertEqual(self.info(on_module), self.full_snapshot())
         self.assertEqual(self.info(on_other), self.bare_snapshot(self.other_device))
 
+    def test_english_in_any_language(self):
+        on_device = self.make_asset("SN-DEV", self.device)
+        self.in_italian()
+        self.backfill()
+        self.assertEqual(self.info(on_device), self.full_snapshot())
+
     def test_leaves_filled_and_non_device_assets_alone(self):
         filled = self.make_asset("SN-FILLED", self.device, "written by hand")
         on_site = self.make_asset("SN-SITE", self.site)

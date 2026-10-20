@@ -2,12 +2,13 @@
 
 The text is a contract with whoever reads the CSV export: one "key: value" line per entry, keys
 always in this order, optional entries omitted when empty, no blank lines, no trailing newline.
+Labels are always in English, whatever the language of the request that triggers the snapshot (Q15).
 """
 
 from decimal import Decimal
 
 from django.contrib.contenttypes.models import ContentType
-from django.utils import timezone
+from django.utils import timezone, translation
 
 # Everything build_device_snapshot() reads, loaded with the Device in one query
 DEVICE_SNAPSHOT_RELATED = (
@@ -35,6 +36,11 @@ def _format_rack(device):
 
 def build_device_snapshot(device, now=None):
     """Return the last_related_info text for a Device (spec §3.1); `now` defaults to timezone.now()."""
+    with translation.override("en"):
+        return _build_device_snapshot(device, now)
+
+
+def _build_device_snapshot(device, now):
     snapshot_date = timezone.localtime(now or timezone.now()).replace(microsecond=0).isoformat()
     primary_ip = device.primary_ip
     entries = [

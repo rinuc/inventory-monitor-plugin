@@ -6,7 +6,8 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
 
 ## Stato
 
-- **Task corrente**: T018 — istantanea in inglese (Q15)
+- **Task corrente**: CHECKPOINT 2 — in attesa dell'ok dell'utente (verifica di T017 e T018 sull'harness
+  da fare dopo la ricostruzione dell'immagine)
 - **CHECKPOINT 2 eseguito il 2026-10-20** da Claude in Chrome sull'harness su richiesta dell'utente
   (utenti `cp2-full`, `cp2-viewer`, `cp2-noregistry`): 14 passi e R6 riusciti; trovati T017 e Q15
   della specifica. Q15 risolta con la raccomandazione (2026-10-20) → T018. In attesa dell'ok dell'utente
@@ -20,7 +21,7 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
   (basta l'Owner standard di NetBox?), i valori `Kind` del Journal (configurazione dell'harness,
   `FIELD_CHOICES['extras.JournalEntry.kind+']`, non codice del plugin), `technical_decommission_operator`
   come testo invece di Contact
-- **Ultimo task completato**: T017 — etichetta della ricerca globale per i record, commit (pending), 2026-10-20
+- **Ultimo task completato**: T018 — istantanea in inglese (Q15), commit (pending), 2026-10-20
 - **Checkpoint raggiunti**: CHECKPOINT 1 (2026-10-20), CHECKPOINT 3 (2026-10-20)
 - **Problemi aperti** (fuori ambito, da aprire come issue separate; nessuno blocca il piano):
   - chiave `FIELD_CHOICES` documentata nel README per `lifecycle_status` senza effetto (D6);
@@ -93,10 +94,11 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
   un'etichetta leggibile; NetBox usa il `verbose_name` del campo, che un metodo non ha. Trovato al CHECKPOINT 2,
   passo 12 (2026-10-20). Attuato: il seriale è indicizzato sotto il campo `asset` (etichetta *Asset*), metodo
   `get_asset_serial_for_search` tolto — requisiti: P6, D9 — test: tests/test_decommissioning_record.py (`SearchTest`) —
-  commit (pending) — 2026-10-20
-- [ ] T018 Istantanea in inglese (Q15): `build_device_snapshot()` dentro `translation.override("en")`, così
+  commit `31338a5` — 2026-10-20
+- [x] T018 Istantanea in inglese (Q15): `build_device_snapshot()` dentro `translation.override("en")`, così
   `status` (e ogni altra etichetta) non dipende dalla lingua di chi salva, cancella o esegue il backfill —
   requisiti: R1, D11, D12, Q15 — test: tests/test_last_related_info.py, tests/test_backfill_last_related_info.py
+  (helper `DcimFixturesMixin.in_italian()` in tests/dcim_fixtures.py) — commit (pending) — 2026-10-20
 - [ ] CHECKPOINT 2 — prova manuale da browser con lo scenario in 14 passi (checkpoint B del prompt), più `nis_relevant` (scheda, form, colonna, filtro, bulk edit, CSV, API); attesa dell'ok
 - [ ] T012 Documentazione e versione: `docs/decommissioning-record.md` (incluso `nis_relevant`), README (incluse le chiavi R4), CHANGELOG `15.3.0` (incluso R6), `version.py` (passo 9) — requisiti: R4, R5, R6, D1, D5, D6, D12 — test: —
 - [ ] T013 Verifica finale: suite su database di test ricreato, `makemigrations --check`, ruff, `migrate 0008` e ritorno, tabella requisito → test definitiva, `git log` (passo 10) — requisiti: §6 prompt — test: suite completa

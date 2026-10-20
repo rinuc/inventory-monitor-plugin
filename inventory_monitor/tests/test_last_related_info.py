@@ -11,6 +11,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
+from django.utils import translation
 from ipam.models import IPAddress
 
 from inventory_monitor.models import Asset
@@ -61,6 +62,12 @@ class SnapshotFormatTest(LastRelatedInfoTestCase):
         lines = dict(line.split(": ", 1) for line in build_device_snapshot(device).splitlines())
         self.assertEqual(lines["primary_ip"], "2001:db8::1/64")
 
+    def test_labels_are_english_in_any_language(self):
+        """Q15: the stored text does not depend on the language of whoever triggers the snapshot."""
+        self.in_italian()
+        self.assertEqual(build_device_snapshot(self.device), self.full_snapshot())
+        self.assertEqual(translation.get_language(), "it")
+
     def test_snapshot_date_is_local_time_whole_seconds(self):
         """D8: TIME_ZONE offset, no microseconds."""
         self.assertEqual(build_device_snapshot(self.device).splitlines()[0], f"snapshot_date: {SNAPSHOT_DATE}")
@@ -82,6 +89,11 @@ class AssignmentOnSaveTest(LastRelatedInfoTestCase):
     def test_assign_device(self):
         asset = self.make_asset(assigned_object=self.device)
         self.assertEqual(asset.last_related_info, self.full_snapshot())
+        self.assertEqual(self.reload(asset).last_related_info, self.full_snapshot())
+
+    def test_assign_device_in_another_language(self):
+        self.in_italian()
+        asset = self.make_asset(assigned_object=self.device)
         self.assertEqual(self.reload(asset).last_related_info, self.full_snapshot())
 
     def test_assign_device_to_existing_asset(self):
@@ -232,6 +244,13 @@ class DeviceDeletionTest(LastRelatedInfoTestCase):
         Asset.objects.filter(pk__in=[a.pk for a in direct + via_module]).update(last_related_info="stale")
         Device.objects.filter(pk=device.pk).update(serial="FINAL")
         return device, direct + via_module, unrelated
+
+    def test_device_delete_in_another_language(self):
+        device, assets, _ = self.populate(1)
+        self.in_italian()
+        device.delete()
+        for asset in assets:
+            self.assertIn("status: Active", self.reload(asset).last_related_info.splitlines())
 
     def delete_counting_queries(self, obj):
         with CaptureQueriesContext(connection) as ctx:

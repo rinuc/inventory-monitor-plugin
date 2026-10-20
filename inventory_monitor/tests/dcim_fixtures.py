@@ -16,6 +16,7 @@ from dcim.models import (
     Site,
 )
 from django.test import override_settings
+from django.utils import translation
 from ipam.models import IPAddress
 from tenancy.models import Tenant
 
@@ -68,6 +69,14 @@ class DcimFixturesMixin:
         cls.module_bay = ModuleBay.objects.create(device=cls.device, name="Bay 1")
         cls.module_type = ModuleType.objects.create(manufacturer=manufacturer, model="LC-1")
         cls.module = Module.objects.create(device=cls.device, module_bay=cls.module_bay, module_type=cls.module_type)
+
+    def in_italian(self):
+        """Activate Italian, where NetBox translates the Device status label (Q15)."""
+        override = translation.override("it")
+        override.__enter__()
+        self.addCleanup(override.__exit__, None, None, None)
+        # Without the translation the tests below would pass for the wrong reason
+        self.assertEqual(self.device.get_status_display(), "Attivo")
 
     @classmethod
     def make_device(cls, name, site=None, **kwargs):
