@@ -6,8 +6,10 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
 
 ## Stato
 
-- **Task corrente**: CHECKPOINT 2 — prova manuale da browser (scenario in 14 passi più R6); l'immagine
-  dell'harness va ricostruita prima della prova
+- **Task corrente**: T017 — etichetta della ricerca globale per i record
+- **CHECKPOINT 2 eseguito il 2026-10-20** da Claude in Chrome sull'harness su richiesta dell'utente
+  (utenti `cp2-full`, `cp2-viewer`, `cp2-noregistry`): 14 passi e R6 riusciti; trovati T017 e Q15
+  della specifica. In attesa dell'ok dell'utente
 - **CHECKPOINT 2 spostato dopo T016** (2026-10-20): l'utente ha approvato R6 e chiesto di
   procedere senza dare ancora l'ok alla prova manuale; la prova coprirà anche R6. Passo 9 già
   ripetuto dopo T014 con esito positivo (`33ffc80`). Il ritorno a `0008` dell'harness (Q11) ha
@@ -18,7 +20,7 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
   (basta l'Owner standard di NetBox?), i valori `Kind` del Journal (configurazione dell'harness,
   `FIELD_CHOICES['extras.JournalEntry.kind+']`, non codice del plugin), `technical_decommission_operator`
   come testo invece di Contact
-- **Ultimo task completato**: T016 — R6 API e GraphQL, commit (pending), 2026-10-20
+- **Ultimo task completato**: T016 — R6 API e GraphQL, commit `41624bb`, 2026-10-20
 - **Checkpoint raggiunti**: CHECKPOINT 1 (2026-10-20), CHECKPOINT 3 (2026-10-20)
 - **Problemi aperti** (fuori ambito, da aprire come issue separate; nessuno blocca il piano):
   - chiave `FIELD_CHOICES` documentata nel README per `lifecycle_status` senza effetto (D6);
@@ -85,7 +87,11 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
   tests/test_last_related_info.py — commit `49f1998` — 2026-10-20
 - [x] CHECKPOINT 3 — approvazione dell'estensione R6 della specifica (§2.5) e risposta a Q11–Q14; attesa dell'ok prima del codice — ok dell'utente — 2026-10-20
 - [x] T015 R6 modello e interfaccia: `Asset.nis_relevant`, `0009` rigenerata secondo Q11 (database di sviluppo, `test_netbox` e harness riportati a `0008` prima), form (`AssetForm`, filtro, bulk edit, import CSV), filtri (`nis_relevant` su Asset, `asset_nis_relevant` sui record), colonne (`AssetTable`, `DecommissioningRecordTable`), righe in `asset.html` e `decommissioningrecord.html`; colonna di default anche in `EnhancedAssetTable` — requisiti: R6, R5 — test: tests/test_nis_relevant.py — commit `d62235b` — 2026-10-20
-- [x] T016 R6 API e GraphQL: `nis_relevant` in `AssetSerializer` (non in `brief`), campo sul tipo GraphQL, filtro `nis_relevant` in `InventoryMonitorAssetFilter`, `/api/schema/` — requisiti: R6 — test: tests/test_nis_relevant.py — commit (pending) — 2026-10-20
+- [x] T016 R6 API e GraphQL: `nis_relevant` in `AssetSerializer` (non in `brief`), campo sul tipo GraphQL, filtro `nis_relevant` in `InventoryMonitorAssetFilter`, `/api/schema/` — requisiti: R6 — test: tests/test_nis_relevant.py — commit `41624bb` — 2026-10-20
+- [ ] T017 Etichetta della ricerca globale per i record: il risultato mostra il campo trovato come
+  `get_asset_serial_for_search` (nome del metodo indicizzato in `DecommissioningRecordIndex.fields`) invece di
+  un'etichetta leggibile; NetBox usa il `verbose_name` del campo, che un metodo non ha. Trovato al CHECKPOINT 2,
+  passo 12 (2026-10-20) — requisiti: P6, D9 — test: tests/test_decommissioning_views.py (`SearchTest`)
 - [ ] CHECKPOINT 2 — prova manuale da browser con lo scenario in 14 passi (checkpoint B del prompt), più `nis_relevant` (scheda, form, colonna, filtro, bulk edit, CSV, API); attesa dell'ok
 - [ ] T012 Documentazione e versione: `docs/decommissioning-record.md` (incluso `nis_relevant`), README (incluse le chiavi R4), CHANGELOG `15.3.0` (incluso R6), `version.py` (passo 9) — requisiti: R4, R5, R6, D1, D5, D6, D12 — test: —
 - [ ] T013 Verifica finale: suite su database di test ricreato, `makemigrations --check`, ruff, `migrate 0008` e ritorno, tabella requisito → test definitiva, `git log` (passo 10) — requisiti: §6 prompt — test: suite completa

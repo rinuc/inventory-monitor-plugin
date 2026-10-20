@@ -756,3 +756,11 @@ vale come decisione. Il testo resta qui per la motivazione. Q10 è aperta. **Q11
   `asset_nis_relevant` nella tabella dei record (quindi nell'export CSV se selezionata) e filtro
   `asset_nis_relevant` nel filterset dei record, non tra le colonne di default (il Registro di §1
   resta invariato).
+- **Q15 — Lingua dell'istantanea** (aperta, CHECKPOINT 2 del 2026-10-20). `status` usa
+  `device.get_status_display()` (§3.1, riga 10), che rende l'etichetta nella lingua attiva della
+  richiesta: con l'interfaccia in italiano l'istantanea scrive `status: Attivo`, con l'inglese
+  `Active`, e il pre_delete o il comando `backfill_last_related_info` usano la lingua di chi li
+  esegue. Il testo salvato, e quindi l'export CSV del Registro, dipende da chi ha toccato l'asset
+  per ultimo. *Raccomandazione*: costruire l'istantanea dentro `translation.override("en")`, così
+  il contenuto è stabile e uguale all'esempio della specifica (`Active`); in alternativa scrivere il
+  valore grezzo (`active`).
