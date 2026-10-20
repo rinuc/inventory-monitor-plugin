@@ -7,6 +7,7 @@ from inventory_monitor.api.serializers import (
     AssetTypeSerializer,
     ContractorSerializer,
     ContractSerializer,
+    DecommissioningRecordSerializer,
     ExternalInventorySerializer,
     InvoiceSerializer,
     ProbeSerializer,
@@ -41,7 +42,9 @@ class InvoiceViewSet(NetBoxModelViewSet):
 
 
 class AssetViewSet(NetBoxModelViewSet):
-    queryset = models.Asset.objects.select_related("type", "order_contract", "owner__group").prefetch_related("tags")
+    queryset = models.Asset.objects.select_related(
+        "type", "order_contract", "owner__group", "decommissioning_record"
+    ).prefetch_related("tags")
     serializer_class = AssetSerializer
     filterset_class = filtersets.AssetFilterSet
 
@@ -68,3 +71,17 @@ class ExternalInventoryViewSet(NetBoxModelViewSet):
     queryset = ExternalInventory.objects.select_related("owner__group").prefetch_related("assets", "tags")
     serializer_class = ExternalInventorySerializer
     filterset_class = ExternalInventoryFilterSet
+
+
+class DecommissioningRecordViewSet(NetBoxModelViewSet):
+    # The nested asset serializes its assignment and asset numbers: prefetched, not one query per record
+    queryset = models.DecommissioningRecord.objects.select_related(
+        "asset",
+        "asset__type",
+        "asset__order_contract",
+        "technical_decommission_operator",
+        "sanitization_operator",
+        "owner__group",
+    ).prefetch_related("asset__assigned_object", "asset__external_inventory_items", "tags")
+    serializer_class = DecommissioningRecordSerializer
+    filterset_class = filtersets.DecommissioningRecordFilterSet

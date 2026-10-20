@@ -268,7 +268,11 @@ Dettagli:
   (`ValidatedModelSerializer`), script che chiamano `full_clean()`. **Non** vale per `save()`
   diretto né per `QuerySet.update()`: documentato come limite per gli script esterni.
 - Unicità 0:1: garantita dal `OneToOneField`; `validate_unique()` di `full_clean()` produce l'errore
-  sul campo `asset` per form, CSV e API.
+  sul campo `asset` per form e CSV. L'API **no**: `ValidatedModelSerializer` chiama
+  `full_clean(validate_unique=False)` e DRF non aggiunge un `UniqueValidator` a un campo dichiarato
+  (`asset` è un serializer annidato), quindi un secondo record arriverebbe al vincolo del database
+  (`IntegrityError`, errore 500). Lo intercetta `DecommissioningRecordSerializer.validate_asset()`
+  (errore 400 sul campo `asset`, codice `unique`); trovato in T010.
 
 **P2 — Errori aggregati.** `DecommissioningRecord.clean()` raccoglie gli errori in un dict e li
 solleva insieme. `Asset.clean()` mantiene lo stile esistente (sollevamento al primo errore) e
@@ -467,11 +471,18 @@ corretta. Una query in più solo quando il seriale cambia.
   reverse one-to-one manca (`ObjectDoesNotExist` gestito in `get_attribute`). Verifica: test che
   genera `/api/schema/` senza errori.
 - `AssetTypeSerializer`: `decommissioning_requirements` e `decommissioning_requirements_configured`.
-- `AssetViewSet.queryset`: `select_related("decommissioning_record")`.
+- `AssetViewSet.queryset`: `select_related("decommissioning_record")`. Come nella lista UI, il test
+  N+1 della lista asset API passa anche senza: NetBox aggiunge da sé i prefetch dei campi del
+  serializer; resta come guardia.
 
 ### 7.2 ViewSet e router
 
-`DecommissioningRecordViewSet(NetBoxModelViewSet)` con il `queryset` di §6.4,
+`DecommissioningRecordViewSet(NetBoxModelViewSet)` con il `queryset` di §6.4 più
+`asset__order_contract` nel `select_related` e `prefetch_related("asset__assigned_object",
+"asset__external_inventory_items", "tags")`: l'asset annidato in forma *brief* serializza
+`assigned_object` (GFK) e `asset_numbers`, una query per record ciascuno senza prefetch.
+`Asset.get_external_inventory_asset_numbers()` usa la cache del prefetch quando c'è (stesso
+risultato: numeri non vuoti, distinti, ordinati), altrimenti la query di prima.
 `router.register("decommissioning-records", ...)`.
 
 ### 7.3 GraphQL

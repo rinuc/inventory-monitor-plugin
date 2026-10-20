@@ -739,10 +739,7 @@ class DecommissioningRecordViewsTest(DecommissioningViewTestCase):
     def test_delete_keeps_asset(self):
         self.add_permissions("inventory_monitor.delete_decommissioningrecord")
         record = self.make_record(self.retired)
-        # The event queue serializes deleted objects with the REST serializer, which arrives with
-        # the API (T010); until then the event is not enqueued.
-        with mock.patch("core.signals.enqueue_event"):
-            response = self.client.post(url("decommissioningrecord_delete", record.pk), {"confirm": True})
+        response = self.client.post(url("decommissioningrecord_delete", record.pk), {"confirm": True})
         self.assertEqual(response.status_code, 302)
         self.assertFalse(DecommissioningRecord.objects.filter(pk=record.pk).exists())
         self.assertTrue(Asset.objects.filter(pk=self.retired.pk).exists())
@@ -774,12 +771,10 @@ class DecommissioningRecordViewsTest(DecommissioningViewTestCase):
             "inventory_monitor.view_decommissioningrecord", "inventory_monitor.delete_decommissioningrecord"
         )
         records = [self.make_record(self.retired), self.make_record(self.disposed)]
-        # As in test_delete_keeps_asset: no REST serializer for the event queue before T010
-        with mock.patch("core.signals.enqueue_event"):
-            response = self.client.post(
-                url("decommissioningrecord_bulk_delete"),
-                {"pk": [r.pk for r in records], "confirm": True, "_confirm": True},
-            )
+        response = self.client.post(
+            url("decommissioningrecord_bulk_delete"),
+            {"pk": [r.pk for r in records], "confirm": True, "_confirm": True},
+        )
         self.assertEqual(response.status_code, 302)
         self.assertFalse(DecommissioningRecord.objects.exists())
         self.assertEqual(Asset.objects.filter(pk__in=[self.retired.pk, self.disposed.pk]).count(), 2)

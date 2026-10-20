@@ -393,6 +393,10 @@ class Asset(ContactsMixin, PrimaryModel, DateStatusMixin, ImageAttachmentsMixin)
 
     def get_external_inventory_asset_numbers(self):
         """Get all External Inventory numbers associated with this asset"""
+        prefetched = getattr(self, "_prefetched_objects_cache", {}).get("external_inventory_items")
+        if prefetched is not None:
+            # prefetch_related("external_inventory_items") in an API list: no query per asset
+            return sorted({item.inventory_number for item in prefetched if item.inventory_number})
         return (
             self.external_inventory_items.filter(inventory_number__isnull=False)
             .exclude(inventory_number="")

@@ -5,11 +5,12 @@ from dcim.api.serializers import (
     LocationSerializer,
     SiteSerializer,
 )
+from django.utils.translation import gettext_lazy as _
 from drf_spectacular.utils import extend_schema_field
 from netbox.api.fields import ContentTypeField, SerializedPKRelatedField
 from netbox.api.serializers import NetBoxModelSerializer, PrimaryModelSerializer
 from rest_framework import serializers
-from tenancy.api.serializers import TenantSerializer
+from tenancy.api.serializers import ContactSerializer, TenantSerializer
 from utilities.api import get_serializer_for_model
 
 # Local models
@@ -21,9 +22,15 @@ from inventory_monitor.models import (
     AssetType,
     Contract,
     Contractor,
+    DecommissioningRecord,
     ExternalInventory,
     Invoice,
     Probe,
+)
+from inventory_monitor.settings import (
+    DECOMMISSIONING_REQUIREMENTS_CHOICES,
+    SANITIZATION_METHOD_CHOICES,
+    is_configured,
 )
 
 #
@@ -35,6 +42,7 @@ class AssetTypeSerializer(NetBoxModelSerializer):
     """Serializer for AssetType objects"""
 
     url = serializers.HyperlinkedIdentityField(view_name="plugins-api:inventory_monitor-api:assettype-detail")
+    decommissioning_requirements_configured = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = AssetType
@@ -45,6 +53,8 @@ class AssetTypeSerializer(NetBoxModelSerializer):
             "slug",
             "description",
             "color",
+            "decommissioning_requirements",
+            "decommissioning_requirements_configured",
             "display",
             "custom_fields",
             "created",
@@ -60,6 +70,11 @@ class AssetTypeSerializer(NetBoxModelSerializer):
             "color",
             "display",
         ]
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_decommissioning_requirements_configured(self, obj):
+        """False for a value removed from the configuration (R4); the stored value is kept"""
+        return is_configured(DECOMMISSIONING_REQUIREMENTS_CHOICES, obj.decommissioning_requirements)
 
 
 class ContractorSerializer(PrimaryModelSerializer):
@@ -176,9 +191,11 @@ class AssetSerializer(PrimaryModelSerializer):
             "assigned_object",
             "assignment_status",
             "lifecycle_status",
+            "last_related_info",
             # Related objects
             "type",
             "order_contract",
+            "decommissioning_record",
             # Additional information
             "project",
             "vendor",
@@ -212,6 +229,13 @@ class AssetSerializer(PrimaryModelSerializer):
             "lifecycle_status",
             "custom_fields",
         )
+
+    def get_fields(self):
+        """Nest the decommissioning record, whose serializer is defined below and nests the asset"""
+        fields = super().get_fields()
+        # Brief fields of the record have no asset, so the nesting does not recurse
+        fields["decommissioning_record"] = DecommissioningRecordSerializer(nested=True, read_only=True, allow_null=True)
+        return fields
 
     @extend_schema_field(serializers.JSONField(allow_null=True))
     def get_assigned_object(self, obj):
@@ -433,3 +457,75 @@ class ExternalInventorySerializer(PrimaryModelSerializer):
             "last_updated",
         ]
         brief_fields = ["id", "url", "display", "inventory_number", "name", "serial_number", "status"]
+
+
+class DecommissioningRecordSerializer(PrimaryModelSerializer):
+    """Serializer for DecommissioningRecord objects"""
+
+    url = serializers.HyperlinkedIdentityField(
+        view_name="plugins-api:inventory_monitor-api:decommissioningrecord-detail"
+    )
+    asset = AssetSerializer(nested=True)
+    technical_decommission_operator = ContactSerializer(nested=True, required=False, allow_null=True)
+    sanitization_operator = ContactSerializer(nested=True, required=False, allow_null=True)
+    sanitization_method_configured = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = DecommissioningRecord
+        fields = [
+            "id",
+            "url",
+            "display",
+            "asset",
+            "technical_decommission_date",
+            "technical_decommission_operator",
+            "sanitization_date",
+            "sanitization_method",
+            "sanitization_method_configured",
+            "sanitization_operator",
+            "disposal_date",
+            "disposal_document",
+            "description",
+            "comments",
+            "owner",
+            "tags",
+            "custom_fields",
+            "created",
+            "last_updated",
+        ]
+        # No asset: the record is nested in AssetSerializer
+        brief_fields = [
+            "id",
+            "url",
+            "display",
+            "technical_decommission_date",
+            "sanitization_date",
+            "disposal_date",
+        ]
+
+    def validate_asset(self, value):
+        """
+        One record per asset. NetBox skips validate_unique() in the API and the asset field is
+        declared here, so DRF adds no unique validator: without this check a second record
+        would reach the database constraint.
+        """
+        records = DecommissioningRecord.objects.filter(asset=value)
+        if self.instance is not None:
+            records = records.exclude(pk=self.instance.pk)
+        if records.exists():
+            raise serializers.ValidationError(_("This asset already has a decommissioning record."), code="unique")
+        return value
+
+    def validate_sanitization_method(self, value):
+        """Only configured methods, except a removed one the record already carries (V4)"""
+        unchanged = self.instance is not None and value == self.instance.sanitization_method
+        if value and not unchanged and not is_configured(SANITIZATION_METHOD_CHOICES, value):
+            raise serializers.ValidationError(
+                _("{value} is not a configured sanitization method.").format(value=value), code="not_configured"
+            )
+        return value
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_sanitization_method_configured(self, obj):
+        """False for a value removed from the configuration (R4); the stored value is kept"""
+        return is_configured(SANITIZATION_METHOD_CHOICES, obj.sanitization_method)

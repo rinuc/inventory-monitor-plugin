@@ -6,8 +6,8 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
 
 ## Stato
 
-- **Task corrente**: T010 — API REST (passo 7)
-- **Ultimo task completato**: T009 — Viste, URL, template, menu, ricerca (passo 6), commit (pending), 2026-10-20
+- **Task corrente**: T011 — GraphQL (passo 8)
+- **Ultimo task completato**: T010 — API REST (passo 7), commit (pending), 2026-10-20
 - **Checkpoint raggiunti**: CHECKPOINT 1 (2026-10-20)
 - **Problemi aperti** (fuori ambito, da aprire come issue separate; nessuno blocca il piano):
   - chiave `FIELD_CHOICES` documentata nel README per `lifecycle_status` senza effetto (D6);
@@ -21,28 +21,28 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
     `replace_migrations=False`. `migrate` e `showmigrations` funzionano. Aggiramento: in
     `manage.py shell`, `MigrationLoader(connection).collect_sql([(nodo, backwards)])` (grafo con le
     squash). Trovato al CHECKPOINT 1.
+  - N+1 preesistente nelle liste API di Asset, RMA, AssetService ed ExternalInventory: ogni asset
+    (anche annidato) serializza `assigned_object` (GFK) e `asset_numbers` con una query ciascuno.
+    Corretto solo per la lista dei record (T010, §7.2 della specifica); per gli altri basterebbe
+    `prefetch_related("assigned_object", "external_inventory_items")` (con prefisso `asset__` dove
+    l'asset è annidato). Trovato in T010.
 - **Note per i task successivi**:
-  - finché non esiste `DecommissioningRecordSerializer` (T010), cancellare un record (o un asset
-    con record) dentro una richiesta fallisce con `SerializerNotFound` nella coda eventi di NetBox;
-    disattivano `core.signals.enqueue_event` con un commento il test di cascata in
-    `test_decommissioning_record.py` e, da T009, `test_delete_keeps_asset` e `test_bulk_delete` in
-    `test_decommissioning_views.py`: T010 deve togliere quei tre `mock.patch`.
   - le fixture DCIM dei test di R1 stanno in `tests/dcim_fixtures.py` (`DcimFixturesMixin`, fuso
     `Europe/Rome` e `timezone.now()` fissati in `setUp`).
   - le scelte configurabili nei form usano `settings.get_choices_including()`; tabelle e filtri
     `*_configured` usano `helpers.ConfiguredChoiceColumn` e `helpers.filter_configured()`; i template
     usano i filtri `sanitization_method_display` / `decommissioning_requirements_display`
-    (`templatetags/inventory_monitor.py`, su `helpers.render_configured_choice()`): da riusare nel
-    serializer (T010) e in GraphQL (T011).
-  - `AssetViewSet.queryset` non ha ancora `select_related("decommissioning_record")` (§6.7, §7.1):
-    arriva con T010. Il test N+1 della lista asset UI con le colonne del record passava già prima di
-    `select_related` (NetBox aggiunge da sé i prefetch delle colonne attive): resta come guardia.
+    (`templatetags/inventory_monitor.py`, su `helpers.render_configured_choice()`); il serializer
+    usa `settings.is_configured()` per i booleani `*_configured`: da riusare in GraphQL (T011).
+  - i test HTTP dell'API (`test_decommissioning_api.py`) usano `utilities.testing.APITestCase`; nei
+    conteggi di query la prima richiesta di un token fa un `UPDATE` di `last_used` in più: il
+    conteggio parte dopo una richiesta di riscaldamento.
   - i test HTTP delle viste usano `utilities.testing.TestCase` di NetBox: gli operatori si scelgono
     solo tra i Contact visibili all'utente, quindi servono `tenancy.view_contact` nei test che li
     impostano; la ricerca indicizza al commit, in un solo flush per transazione (vedi `SearchTest`).
   - buchi di test emersi al CHECKPOINT 1, da coprire nei task successivi: assenza di `ObjectChange`
-    nel comando `backfill_last_related_info` (D12); vincolo di unicità 0:1 a livello di database
-    (`IntegrityError` con `save()` senza `full_clean()`), oggi provato solo in nbshell.
+    nel comando `backfill_last_related_info` (D12). Il vincolo 0:1 a livello di database è coperto
+    da T010 (`test_one_record_per_asset_in_the_database`).
 
 ## Checklist
 
@@ -55,8 +55,8 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
 - [x] T007 `last_related_info`: calcolo al salvataggio (D10), `pre_delete` su Device e Module (D11), comando `backfill_last_related_info` (D12) (passo 4) — requisiti: R1, D5, D8, D10, D11, D12 — test: tests/test_last_related_info.py, tests/test_backfill_last_related_info.py — commit `83525a9` — 2026-10-20
 - [x] CHECKPOINT 1 — schema della migrazione (`sqlmigrate inventory_monitor 0009`), `migrate` avanti e indietro, elenco dei test; attesa dell'ok prima dell'interfaccia (checkpoint A del prompt) — ok dell'utente — 2026-10-20
 - [x] T008 Form, filtri, tabelle: AssetType (form, filtri, tabella, CSV), record (form, filtri, tabella, import), colonne e filtro `has_decommissioning_record` su Asset, campi nuovi in `AssetForm`/`AssetBulkImportForm` (passo 5) — requisiti: R2, R3, R4, D3, D4 — test: tests/test_asset_type_decommissioning.py, tests/test_decommissioning_views.py, tests/test_decommissioning_settings.py — commit `63ca4f1` — 2026-10-20
-- [x] T009 Viste, URL, template, menu, ricerca: viste generiche, `decommissioningrecord.html`, pannelli in `asset.html`/`assettype.html`, badge, `navigation.py`, `search.py` (P6) (passo 6) — requisiti: R1 (pannello), R3, R4, D9 — test: tests/test_decommissioning_views.py, tests/test_decommissioning_record.py, tests/test_navigation.py — commit (pending) — 2026-10-20
-- [ ] T010 API REST: serializer, viewset, router, campi su Asset e AssetType, `/api/schema/` (passo 7) — requisiti: R1, R2, R3, R4 — test: tests/test_decommissioning_api.py; togliere il `mock.patch("core.signals.enqueue_event")` da `test_delete_asset_cascades_with_two_objectchanges`
+- [x] T009 Viste, URL, template, menu, ricerca: viste generiche, `decommissioningrecord.html`, pannelli in `asset.html`/`assettype.html`, badge, `navigation.py`, `search.py` (P6) (passo 6) — requisiti: R1 (pannello), R3, R4, D9 — test: tests/test_decommissioning_views.py, tests/test_decommissioning_record.py, tests/test_navigation.py — commit `19a44b5` — 2026-10-20
+- [x] T010 API REST: serializer, viewset, router, campi su Asset e AssetType, `/api/schema/` (passo 7) — requisiti: R1, R2, R3, R4 — test: tests/test_decommissioning_api.py, tests/test_decommissioning_record.py; tolti i tre `mock.patch("core.signals.enqueue_event")` — commit (pending) — 2026-10-20
 - [ ] T011 GraphQL: tipi, filtri, query, campi su Asset e AssetType (Q8) (passo 8) — requisiti: R1, R2, R3 — test: tests/test_decommissioning_graphql.py
 - [ ] CHECKPOINT 2 — prova manuale da browser con lo scenario in 14 passi (checkpoint B del prompt); attesa dell'ok
 - [ ] T012 Documentazione e versione: `docs/decommissioning-record.md`, README (incluse le chiavi R4), CHANGELOG `15.3.0`, `version.py` (passo 9) — requisiti: R4, R5, D1, D5, D6, D12 — test: —

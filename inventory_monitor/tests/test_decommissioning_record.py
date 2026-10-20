@@ -12,7 +12,7 @@ from unittest import mock
 from core.models import ObjectChange
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
-from django.db import connection
+from django.db import IntegrityError, connection, transaction
 from django.db.models import ProtectedError
 from django.test import RequestFactory, TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
@@ -101,6 +101,13 @@ class DecommissioningRecordModelTest(DecommissioningRecordTestCase):
         DecommissioningRecord.objects.create(asset=asset)
         self.assert_invalid(DecommissioningRecord(asset=asset), {"asset": ["unique"]})
 
+    def test_one_record_per_asset_in_the_database(self):
+        """The 0:1 rule holds for a plain save() too, which skips full_clean()."""
+        asset = self.make_asset()
+        DecommissioningRecord.objects.create(asset=asset)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            DecommissioningRecord(asset=asset).save()
+
     def test_ordering_newest_first_undated_last(self):
         """P1: most recent technical decommission first, records without the date at the bottom."""
         undated = DecommissioningRecord.objects.create(asset=self.make_asset("SN-A"))
@@ -136,9 +143,7 @@ class DeletionTest(DecommissioningRecordTestCase):
         request.user = User.objects.create_user(username="deleter")
         asset_pk, record_pk = asset.pk, record.pk
 
-        # The event queue serializes deleted objects with the REST serializer, which arrives with
-        # the API (T010); until then only the changelog is exercised here.
-        with event_tracking(request), mock.patch("core.signals.enqueue_event"):
+        with event_tracking(request):
             asset.delete()
 
         self.assertFalse(DecommissioningRecord.objects.filter(pk=record_pk).exists())
