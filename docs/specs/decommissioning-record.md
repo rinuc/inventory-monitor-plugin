@@ -1,13 +1,13 @@
 # Specifica: Registro Dismissioni (NIS2)
 
-Stato: **bozza in attesa di approvazione** (passo 1 del piano).
+Stato: **approvata** il 2026-10-20 (passo 1 del piano).
 Fonte dei requisiti: `docs/prompts/decommissioning-record-implementation.md` (R1–R5, D1–D11).
 Riferimenti al codice verificati sul ramo `feat/decommissioning-record` il 2026-10-20 (plugin
 15.2.0, NetBox 4.7.3, Django 6.1.2).
 
 Questa specifica fissa il *cosa* e il *come*; le scelte di progetto non coperte dai requisiti sono
-marcate **P*n*** (proposte, valgono salvo diversa indicazione) e le ambiguità che richiedono una
-risposta sono in [§Domande aperte](#domande-aperte).
+marcate **P*n*** (proposte, approvate con la specifica) e le ambiguità che richiedevano una
+risposta sono in [§Domande aperte](#domande-aperte) (tutte risolte).
 
 ---
 
@@ -605,7 +605,8 @@ Approvate dall'utente il 2026-10-20 (dal prompt, §9). Non si riaprono.
 
 ## §Domande aperte
 
-Ognuna ha una raccomandazione; se approvi la specifica senza commenti, vale la raccomandazione.
+**Tutte risolte il 2026-10-20**: Q1 è diventata D12; Q2–Q9 approvate con la raccomandazione, che
+vale come decisione. Il testo resta qui per la motivazione.
 
 - ~~Q1~~ — risolta: vedi D12.
 - **Q2 — Device senza nome.** In NetBox `Device.name` può essere nullo. *Raccomandazione*:
