@@ -1,7 +1,9 @@
 # Specifica: Registro Dismissioni (NIS2)
 
-Stato: **approvata** il 2026-10-20 (passo 1 del piano).
-Fonte dei requisiti: `docs/prompts/decommissioning-record-implementation.md` (R1–R5, D1–D11).
+Stato: **approvata** il 2026-10-20 (passo 1 del piano). Estensione **R6** (`Asset.nis_relevant`,
+§2.5, Q11–Q14) aggiunta il 2026-10-20 su richiesta dell'utente: **in attesa di approvazione**.
+Fonte dei requisiti: `docs/prompts/decommissioning-record-implementation.md` (R1–R5, D1–D11);
+R6 dal diagramma delle classi fornito dall'utente il 2026-10-20 (non è nel prompt).
 Riferimenti al codice verificati sul ramo `feat/decommissioning-record` il 2026-10-20 (plugin
 15.2.0, NetBox 4.7.3, Django 6.1.2).
 
@@ -118,7 +120,43 @@ Una sola migrazione `0009_decommissioning_record.py`, generata con `dev/nb.sh mi
 schema e reversibile: `AddField` su `Asset.last_related_info` e
 `AssetType.decommissioning_requirements`, `CreateModel` di `DecommissioningRecord` con indici.
 Nessuna `RunPython`: gli asset esistenti si popolano con il comando di gestione di §3.3 (D12),
-da eseguire una volta dopo `migrate`.
+da eseguire una volta dopo `migrate`. Con R6 la stessa migrazione aggiunge anche
+`Asset.nis_relevant` (§2.5, Q11).
+
+### 2.5 `Asset.nis_relevant` (R6)
+
+**Requisito.** Un asset si può marcare come rilevante per la NIS2. Il campo è un'informazione di
+classificazione: si vede, si modifica e si filtra in tutti i canali in cui si gestisce l'Asset.
+
+| Campo | Tipo | Note |
+| --- | --- | --- |
+| `nis_relevant` | `BooleanField(default=False, verbose_name=_("NIS2 relevant"), help_text=_("The asset is relevant for NIS2 compliance"))` | R6; non nullo (Q12) |
+
+- **Modello**: nessuna regola in `clean()` e nessun legame con `DecommissioningRecord` né con
+  `AssetType` (Q13). Gli asset esistenti valgono `False` dopo la migrazione.
+- **Migrazione**: aggiunta a `0009_decommissioning_record.py`, rigenerata (Q11).
+- **Form** (`forms/asset.py`):
+  - `AssetForm`: campo nel fieldset *Asset*, dopo `type`;
+  - `AssetFilterForm`: `NullBooleanField` con `BOOLEAN_WITH_BLANK_CHOICES` nel fieldset *Misc*;
+  - `AssetBulkEditForm`: `NullBooleanField` con `BulkEditNullBooleanSelect` nel fieldset *Asset*
+    (non in `nullable_fields`: il campo non è nullo);
+  - `AssetBulkImportForm`: colonna `nis_relevant` facoltativa (assente in creazione ⇒ `False`;
+    assente in aggiornamento ⇒ valore invariato).
+- **Filtri** (`filtersets/asset.py`): `nis_relevant` in `Meta.fields` (filtro booleano automatico
+  di NetBox). `DecommissioningRecordFilterSet`: `asset_nis_relevant` (`asset__nis_relevant`, Q14).
+- **Tabelle**: `AssetTable` colonna `nis_relevant` (`columns.BooleanColumn`) **in**
+  `default_columns`; `DecommissioningRecordTable` colonna opzionale `asset_nis_relevant`
+  (accessor `asset__nis_relevant`, Q14), così compare nell'export CSV del Registro se selezionata.
+  `EnhancedAssetTable` la eredita.
+- **Template** (`asset.html`): riga *NIS2 relevant* nella tabella principale, dopo *Type*, con
+  `{% checkmark object.nis_relevant %}`; `decommissioningrecord.html`: riga *NIS2 relevant*
+  dell'asset accanto a seriale e tipo.
+- **API**: `AssetSerializer` aggiunge `nis_relevant` (lettura/scrittura) a `fields`, non a
+  `brief_fields`. `DecommissioningRecordSerializer` invariato (l'asset annidato è *brief*).
+- **GraphQL**: `InventoryMonitorAssetType` lo espone già con `fields="__all__"` (test di verifica);
+  `InventoryMonitorAssetFilter` aggiunge `nis_relevant: FilterLookup[bool] | None`.
+- **Ricerca**: nessun indice (un booleano non si cerca come testo).
+- **Navigazione**: nessuna voce nuova; il filtro rapido è `?nis_relevant=true` sulla lista Asset.
 
 ---
 
@@ -548,6 +586,11 @@ La colonna *Passo* è il passo del piano del prompt (§5); la corrispondenza con
 | `inventory_monitor/api/serializers.py`, `api/views.py`, `api/urls.py` | 7 | §7 |
 | `inventory_monitor/graphql/types.py`, `filters.py`, `schema.py`, `__init__.py` | 8 | §7.3 |
 | `inventory_monitor/tests/test_contacts.py` | 3 | `DecommissioningRecord` in `EXCLUDED_MODELS` con commento (D2) |
+| `models/asset.py`, `migrations/0009_decommissioning_record.py` | R6 | `nis_relevant`, migrazione rigenerata (Q11) |
+| `forms/asset.py`, `filtersets/asset.py`, `filtersets/decommissioning_record.py` | R6 | campo e filtri (§2.5) |
+| `tables/asset.py`, `tables/decommissioning_record.py` | R6 | colonne (§2.5) |
+| `templates/inventory_monitor/asset.html`, `decommissioningrecord.html` | R6 | riga *NIS2 relevant* |
+| `api/serializers.py`, `graphql/filters.py` | R6 | campo e filtro (§2.5) |
 | `docs/decommissioning-record.md`, `README.md`, `CHANGELOG.md`, `inventory_monitor/version.py` | 9 | R5 |
 
 Nessuna dipendenza nuova. `RMA.update_asset_serial()` e gli script GARR non si toccano.
@@ -599,6 +642,12 @@ Nomi indicativi; la tabella definitiva con i nomi reali sarà aggiornata nella v
 | GraphQL | `test_decommissioning_graphql.py` | query singola, lista, `decommissioning_record` su asset, filtri (date, metodo, operatori, `*_configured`, `has_decommissioning_record`), `*_configured` con valore dismesso |
 | N+1 | views + api | lista record UI/API, lista asset con colonne nuove: 2 vs 5 |
 | R5 | — | `makemigrations --check`, `migrate 0008` e ritorno (riepilogo) |
+| R6 modello | `test_nis_relevant.py` | predefinito `False` su asset nuovo, salvataggio `True` |
+| R6 form / bulk edit / CSV | idem | `AssetForm` imposta e toglie; bulk edit `true`/`false`/invariato; CSV creazione con e senza colonna, aggiornamento senza colonna non cambia il valore |
+| R6 filtri | idem | `nis_relevant=true/false` su Asset; `asset_nis_relevant` sui record |
+| R6 tabelle e scheda | idem | colonna nella lista Asset (di default), colonna opzionale e export CSV dei record, riga nella scheda Asset e nel record |
+| R6 API | idem | lettura in lista e dettaglio, `PATCH`, assente in `brief`, `/api/schema/` |
+| R6 GraphQL | idem | campo su asset, filtro `nis_relevant` |
 
 ---
 
@@ -642,7 +691,7 @@ Approvate dall'utente il 2026-10-20 (dal prompt, §9). Non si riaprono.
 ## §Domande aperte
 
 **Q1–Q9 risolte il 2026-10-20**: Q1 è diventata D12; Q2–Q9 approvate con la raccomandazione, che
-vale come decisione. Il testo resta qui per la motivazione. Q10 è aperta.
+vale come decisione. Il testo resta qui per la motivazione. Q10–Q14 sono aperte.
 
 - ~~Q1~~ — risolta: vedi D12.
 - **Q2 — Device senza nome.** In NetBox `Device.name` può essere nullo. *Raccomandazione*:
@@ -686,3 +735,21 @@ vale come decisione. Il testo resta qui per la motivazione. Q10 è aperta.
   l'istantanea descrive lo stato dopo la cancellazione; l'istanza del Module non porta l'IP del
   Device, quindi la correzione di T014 non si applica. *Raccomandazione*: lasciare così e
   documentarlo in `docs/decommissioning-record.md` (T012).
+- **Q11 — Migrazione di R6.** R5 chiede una sola migrazione nuova e non ci sono rilasci
+  intermedi, ma `0009` è già applicata sul database di sviluppo, sul `test_netbox` e
+  sull'harness. *Raccomandazione*: rigenerare `0009` con il campo in più. Prima: `dev/nb.sh manage
+  migrate inventory_monitor 0008` sul database di sviluppo, `DROP DATABASE test_netbox`, e
+  sull'harness `migrate inventory_monitor 0008` prima di ricostruire l'immagine (si perdono i record
+  di dismissione di prova, nessun dato reale). In alternativa una `0010_asset_nis_relevant.py`
+  separata: nessun ritorno indietro, ma due migrazioni contro R5.
+- **Q12 — Valore predefinito.** *Raccomandazione*: `False`, non nullo: un asset è "non rilevante"
+  finché qualcuno non lo marca. In alternativa nullo (`None` = "non valutato"), che distingue gli
+  asset mai classificati ma rende il filtro a tre stati.
+- **Q13 — Effetti sulle regole.** Il campo potrebbe rendere obbligatorio qualcosa, per esempio il
+  record di dismissione prima di portare un asset rilevante a *Retired*/*Disposed* (oggi V7 lo
+  permette senza record), oppure ereditare un predefinito da `AssetType`. *Raccomandazione*: nessun
+  effetto, solo classificazione; eventuali regole come requisito separato.
+- **Q14 — Presenza nel Registro Dismissioni.** *Raccomandazione*: colonna opzionale
+  `asset_nis_relevant` nella tabella dei record (quindi nell'export CSV se selezionata) e filtro
+  `asset_nis_relevant` nel filterset dei record, non tra le colonne di default (il Registro di §1
+  resta invariato).

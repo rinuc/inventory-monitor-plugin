@@ -10,6 +10,12 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
   sull'harness con l'immagine ricostruita, via `Device.delete()` in `nbshell` (stesso percorso di
   vista e API): `primary_ip` resta nell'istantanea, assegnazione orfana. In attesa dell'ok
   dell'utente. Dati di prova lasciati nell'harness: oggetti `CP2-*`, Asset `CP2SER01`
+- **Piano esteso il 2026-10-20**: R6 `Asset.nis_relevant` (specifica §2.5, Q11–Q14), richiesto
+  dall'utente con un diagramma delle classi; aggiunti CHECKPOINT 3, T015, T016. Dallo stesso
+  diagramma restano fuori piano, in attesa di decisione dell'utente: `Asset.technical_owner_group`
+  (basta l'Owner standard di NetBox?), i valori `Kind` del Journal (configurazione dell'harness,
+  `FIELD_CHOICES['extras.JournalEntry.kind+']`, non codice del plugin), `technical_decommission_operator`
+  come testo invece di Contact
 - **Ultimo task completato**: T014 — istantanea alla cancellazione del Device con IP primario,
   commit `49f1998`, 2026-10-20
 - **Checkpoint raggiunti**: CHECKPOINT 1 (2026-10-20)
@@ -74,5 +80,8 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
   azzerati nel database (il test esistente cancella un'istanza non aggiornata e vuole i valori del database) — requisiti: R1, D11 — test:
   tests/test_last_related_info.py — commit `49f1998` — 2026-10-20
 - [ ] CHECKPOINT 2 — prova manuale da browser con lo scenario in 14 passi (checkpoint B del prompt); attesa dell'ok
-- [ ] T012 Documentazione e versione: `docs/decommissioning-record.md`, README (incluse le chiavi R4), CHANGELOG `15.3.0`, `version.py` (passo 9) — requisiti: R4, R5, D1, D5, D6, D12 — test: —
+- [ ] CHECKPOINT 3 — approvazione dell'estensione R6 della specifica (§2.5) e risposta a Q11–Q14; attesa dell'ok prima del codice
+- [ ] T015 R6 modello e interfaccia: `Asset.nis_relevant`, `0009` rigenerata secondo Q11 (database di sviluppo, `test_netbox` e harness riportati a `0008` prima), form (`AssetForm`, filtro, bulk edit, import CSV), filtri (`nis_relevant` su Asset, `asset_nis_relevant` sui record), colonne (`AssetTable`, `DecommissioningRecordTable`), righe in `asset.html` e `decommissioningrecord.html` — requisiti: R6, R5 — test: tests/test_nis_relevant.py
+- [ ] T016 R6 API e GraphQL: `nis_relevant` in `AssetSerializer` (non in `brief`), campo sul tipo GraphQL, filtro `nis_relevant` in `InventoryMonitorAssetFilter`, `/api/schema/` — requisiti: R6 — test: tests/test_nis_relevant.py
+- [ ] T012 Documentazione e versione: `docs/decommissioning-record.md` (incluso `nis_relevant`), README (incluse le chiavi R4), CHANGELOG `15.3.0` (incluso R6), `version.py` (passo 9) — requisiti: R4, R5, R6, D1, D5, D6, D12 — test: —
 - [ ] T013 Verifica finale: suite su database di test ricreato, `makemigrations --check`, ruff, `migrate 0008` e ritorno, tabella requisito → test definitiva, `git log` (passo 10) — requisiti: §6 prompt — test: suite completa
