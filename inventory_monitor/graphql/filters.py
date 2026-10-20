@@ -145,6 +145,9 @@ class InventoryMonitorAssetFilter(ContactFilterMixin, OwnerFilterMixin, PrimaryM
     # Custom boolean filter
     has_external_inventory_items: FilterLookup[bool] | None = strawberry_django.filter_field()
 
+    # NIS2 classification (R6)
+    nis_relevant: FilterLookup[bool] | None = strawberry_django.filter_field()
+
     # External Inventory number filter (related field)
     external_inventory_number: BaseFilterLookup[str] | None = strawberry_django.filter_field()
 

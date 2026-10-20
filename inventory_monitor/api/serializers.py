@@ -192,6 +192,7 @@ class AssetSerializer(PrimaryModelSerializer):
             "assignment_status",
             "lifecycle_status",
             "last_related_info",
+            "nis_relevant",
             # Related objects
             "type",
             "order_contract",
