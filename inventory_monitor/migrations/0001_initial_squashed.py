@@ -22,6 +22,9 @@ def copy_to_assigned_object(apps, schema_editor):
     Migrate data from site, device, and location to assigned_object
     """
     Asset = apps.get_model("inventory_monitor", "Asset")
+    # Fresh database: dcim ContentTypes are created in post_migrate, and there is nothing to copy
+    if not Asset.objects.exists():
+        return
     ContentType = apps.get_model("contenttypes", "ContentType")
 
     site_ct = ContentType.objects.get(app_label="dcim", model="site")
@@ -52,6 +55,9 @@ def reverse_migration(apps, schema_editor):
     Reverse the migration by copying data from assigned_object back to individual fields
     """
     Asset = apps.get_model("inventory_monitor", "Asset")
+    # Fresh database: dcim ContentTypes are created in post_migrate, and there is nothing to copy
+    if not Asset.objects.exists():
+        return
     ContentType = apps.get_model("contenttypes", "ContentType")
 
     # Get content types for the models
