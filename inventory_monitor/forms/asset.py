@@ -11,6 +11,7 @@ from netbox.forms import (
     PrimaryModelImportForm,
 )
 from tenancy.forms import ContactModelFilterForm
+from utilities.forms import BOOLEAN_WITH_BLANK_CHOICES
 from utilities.forms.fields import (
     CommentField,
     CSVModelChoiceField,
@@ -20,6 +21,7 @@ from utilities.forms.fields import (
 )
 from utilities.forms.rendering import FieldSet, InlineFields, TabbedGroups
 from utilities.forms.utils import add_blank_choice
+from utilities.forms.widgets import BulkEditNullBooleanSelect
 from utilities.forms.widgets.datetime import DatePicker
 
 # Local application imports
@@ -157,6 +159,7 @@ class AssetForm(PrimaryModelForm):
             "serial",
             "description",
             "type",
+            "nis_relevant",
             "project",
             InlineFields("price", "currency", label=_("Price")),
             "vendor",
@@ -197,6 +200,7 @@ class AssetForm(PrimaryModelForm):
             "description",
             # Type and classification
             "type",
+            "nis_relevant",
             # Status fields
             "lifecycle_status",
             "assignment_status",
@@ -298,7 +302,7 @@ class AssetFilterForm(ContactModelFilterForm, PrimaryModelFilterSetForm):
     #
     fieldsets = (
         # Basic search options
-        FieldSet("q", "filter_id", "tag", "has_duplicates", name=_("Misc")),
+        FieldSet("q", "filter_id", "tag", "has_duplicates", "nis_relevant", name=_("Misc")),
         # Status fields
         FieldSet("assignment_status", name=_("Assignment Status")),
         FieldSet("lifecycle_status", name=_("Lifecycle Status")),
@@ -459,6 +463,11 @@ class AssetFilterForm(ContactModelFilterForm, PrimaryModelFilterSetForm):
         help_text=_("Filter by whether Asset object has assigned External Inventory items"),
     )
 
+    nis_relevant = forms.NullBooleanField(
+        required=False,
+        label=_("NIS2 relevant"),
+        widget=forms.Select(choices=BOOLEAN_WITH_BLANK_CHOICES),
+    )
     has_decommissioning_record = forms.ChoiceField(
         choices=[
             ("", "All"),
@@ -477,6 +486,8 @@ class AssetBulkEditForm(PrimaryModelBulkEditForm):
         widget=forms.TextInput(attrs={"placeholder": "Description"}),
     )
     type = DynamicModelChoiceField(queryset=AssetType.objects.all(), required=False)
+
+    nis_relevant = forms.NullBooleanField(required=False, widget=BulkEditNullBooleanSelect(), label=_("NIS2 relevant"))
 
     assignment_status = forms.ChoiceField(choices=add_blank_choice(AssignmentStatusChoices), required=False)
 
@@ -515,7 +526,7 @@ class AssetBulkEditForm(PrimaryModelBulkEditForm):
     )
 
     fieldsets = (
-        FieldSet("description", "type", name=_("Asset")),
+        FieldSet("description", "type", "nis_relevant", name=_("Asset")),
         FieldSet("assignment_status", "lifecycle_status", name=_("Status")),
         FieldSet("project", "vendor", "order_contract", name=_("Details")),
         FieldSet("price", "currency", name=_("Financial")),
@@ -602,6 +613,7 @@ class AssetBulkImportForm(PrimaryModelImportForm):
             "serial",
             "description",
             "type",
+            "nis_relevant",
             "assignment_status",
             "lifecycle_status",
             "project",

@@ -1,7 +1,7 @@
 # Specifica: Registro Dismissioni (NIS2)
 
 Stato: **approvata** il 2026-10-20 (passo 1 del piano). Estensione **R6** (`Asset.nis_relevant`,
-§2.5, Q11–Q14) aggiunta il 2026-10-20 su richiesta dell'utente: **in attesa di approvazione**.
+§2.5, Q11–Q14) aggiunta e approvata il 2026-10-20 su richiesta dell'utente.
 Fonte dei requisiti: `docs/prompts/decommissioning-record-implementation.md` (R1–R5, D1–D11);
 R6 dal diagramma delle classi fornito dall'utente il 2026-10-20 (non è nel prompt).
 Riferimenti al codice verificati sul ramo `feat/decommissioning-record` il 2026-10-20 (plugin
@@ -137,7 +137,8 @@ classificazione: si vede, si modifica e si filtra in tutti i canali in cui si ge
 - **Migrazione**: aggiunta a `0009_decommissioning_record.py`, rigenerata (Q11).
 - **Form** (`forms/asset.py`):
   - `AssetForm`: campo nel fieldset *Asset*, dopo `type`;
-  - `AssetFilterForm`: `NullBooleanField` con `BOOLEAN_WITH_BLANK_CHOICES` nel fieldset *Misc*;
+  - `AssetFilterForm`: `NullBooleanField` con `BOOLEAN_WITH_BLANK_CHOICES` (valori `True`/`False`) nel fieldset
+    *Misc*;
   - `AssetBulkEditForm`: `NullBooleanField` con `BulkEditNullBooleanSelect` nel fieldset *Asset*
     (non in `nullable_fields`: il campo non è nullo);
   - `AssetBulkImportForm`: colonna `nis_relevant` facoltativa (assente in creazione ⇒ `False`;
@@ -145,9 +146,10 @@ classificazione: si vede, si modifica e si filtra in tutti i canali in cui si ge
 - **Filtri** (`filtersets/asset.py`): `nis_relevant` in `Meta.fields` (filtro booleano automatico
   di NetBox). `DecommissioningRecordFilterSet`: `asset_nis_relevant` (`asset__nis_relevant`, Q14).
 - **Tabelle**: `AssetTable` colonna `nis_relevant` (`columns.BooleanColumn`) **in**
-  `default_columns`; `DecommissioningRecordTable` colonna opzionale `asset_nis_relevant`
-  (accessor `asset__nis_relevant`, Q14), così compare nell'export CSV del Registro se selezionata.
-  `EnhancedAssetTable` la eredita.
+  `default_columns`; `EnhancedAssetTable` (lista Asset e viste figlie) ha `default_columns` propri
+  e la aggiunge anche lì (corretto in T015: la lista Asset non usa `AssetTable`);
+  `DecommissioningRecordTable` colonna opzionale `asset_nis_relevant` (accessor
+  `asset__nis_relevant`, Q14), così compare nell'export CSV del Registro se selezionata.
 - **Template** (`asset.html`): riga *NIS2 relevant* nella tabella principale, dopo *Type*, con
   `{% checkmark object.nis_relevant %}`; `decommissioningrecord.html`: riga *NIS2 relevant*
   dell'asset accanto a seriale e tipo.
@@ -691,7 +693,8 @@ Approvate dall'utente il 2026-10-20 (dal prompt, §9). Non si riaprono.
 ## §Domande aperte
 
 **Q1–Q9 risolte il 2026-10-20**: Q1 è diventata D12; Q2–Q9 approvate con la raccomandazione, che
-vale come decisione. Il testo resta qui per la motivazione. Q10–Q14 sono aperte.
+vale come decisione. Il testo resta qui per la motivazione. Q10 è aperta. **Q11–Q14 risolte il
+2026-10-20**: approvate con la raccomandazione.
 
 - ~~Q1~~ — risolta: vedi D12.
 - **Q2 — Device senza nome.** In NetBox `Device.name` può essere nullo. *Raccomandazione*:

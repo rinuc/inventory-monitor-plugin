@@ -24,6 +24,10 @@
                             <td>{{ object.asset.type|linkify|placeholder }}</td>
                         </tr>
                         <tr>
+                            <th scope="row">{% trans "NIS2 relevant" %}</th>
+                            <td>{% checkmark object.asset.nis_relevant %}</td>
+                        </tr>
+                        <tr>
                             <th scope="row">{% trans "Decommissioning requirements" %}</th>
                             <td>{{ object.asset.type.decommissioning_requirements|decommissioning_requirements_display|placeholder }}</td>
                         </tr>

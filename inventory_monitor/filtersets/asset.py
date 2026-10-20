@@ -197,6 +197,7 @@ class AssetFilterSet(PrimaryModelFilterSet, ContactModelFilterSet):
             "lifecycle_status",
             "service_status",
             "warranty_status",
+            "nis_relevant",
             "project",
             "vendor",
             "price",

@@ -112,6 +112,7 @@ class AssetTable(ContactsColumnMixin, PrimaryModelTable):
     #
     assignment_status = columns.ChoiceFieldColumn()
     lifecycle_status = columns.ChoiceFieldColumn()
+    nis_relevant = columns.BooleanColumn(verbose_name="NIS2 relevant")
 
     # Formatted column for warranty status using a template
     warranty_status = CachedTemplateColumn(
@@ -205,6 +206,7 @@ class AssetTable(ContactsColumnMixin, PrimaryModelTable):
             "description",
             # Type and classification
             "type",
+            "nis_relevant",
             # Status
             "assignment_status",
             "lifecycle_status",
@@ -250,6 +252,7 @@ class AssetTable(ContactsColumnMixin, PrimaryModelTable):
             "serial",
             "description",
             "type",
+            "nis_relevant",
             "assignment_status",
             "lifecycle_status",
             "warranty_status",
@@ -320,6 +323,7 @@ class EnhancedAssetTable(AssetTable):
             "serial",
             "description",
             "type",
+            "nis_relevant",
             "assigned_object",
             "assignment_status",
             "lifecycle_status",

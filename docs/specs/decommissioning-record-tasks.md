@@ -6,19 +6,19 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
 
 ## Stato
 
-- **Task corrente**: CHECKPOINT 2 — prova manuale da browser; passo 9 ripetuto il 2026-10-20 dopo T014
-  sull'harness con l'immagine ricostruita, via `Device.delete()` in `nbshell` (stesso percorso di
-  vista e API): `primary_ip` resta nell'istantanea, assegnazione orfana. In attesa dell'ok
-  dell'utente. Dati di prova lasciati nell'harness: oggetti `CP2-*`, Asset `CP2SER01`
+- **Task corrente**: T016 — R6 API e GraphQL
+- **CHECKPOINT 2 spostato dopo T016** (2026-10-20): l'utente ha approvato R6 e chiesto di
+  procedere senza dare ancora l'ok alla prova manuale; la prova coprirà anche R6. Passo 9 già
+  ripetuto dopo T014 con esito positivo (`33ffc80`). Il ritorno a `0008` dell'harness (Q11) ha
+  cancellato `last_related_info` e i record di prova: lo scenario va ripreso dai dati
 - **Piano esteso il 2026-10-20**: R6 `Asset.nis_relevant` (specifica §2.5, Q11–Q14), richiesto
   dall'utente con un diagramma delle classi; aggiunti CHECKPOINT 3, T015, T016. Dallo stesso
   diagramma restano fuori piano, in attesa di decisione dell'utente: `Asset.technical_owner_group`
   (basta l'Owner standard di NetBox?), i valori `Kind` del Journal (configurazione dell'harness,
   `FIELD_CHOICES['extras.JournalEntry.kind+']`, non codice del plugin), `technical_decommission_operator`
   come testo invece di Contact
-- **Ultimo task completato**: T014 — istantanea alla cancellazione del Device con IP primario,
-  commit `49f1998`, 2026-10-20
-- **Checkpoint raggiunti**: CHECKPOINT 1 (2026-10-20)
+- **Ultimo task completato**: T015 — R6 modello e interfaccia, commit (pending), 2026-10-20
+- **Checkpoint raggiunti**: CHECKPOINT 1 (2026-10-20), CHECKPOINT 3 (2026-10-20)
 - **Problemi aperti** (fuori ambito, da aprire come issue separate; nessuno blocca il piano):
   - chiave `FIELD_CHOICES` documentata nel README per `lifecycle_status` senza effetto (D6);
   - `AssetBulkImportForm.save()` disassegna l'asset in un import di aggiornamento senza colonne
@@ -79,9 +79,9 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
   numero di query costante. Trovato al CHECKPOINT 2, passo 9. Attuato: database per tutto, IP primari dall'istanza se
   azzerati nel database (il test esistente cancella un'istanza non aggiornata e vuole i valori del database) — requisiti: R1, D11 — test:
   tests/test_last_related_info.py — commit `49f1998` — 2026-10-20
-- [ ] CHECKPOINT 2 — prova manuale da browser con lo scenario in 14 passi (checkpoint B del prompt); attesa dell'ok
-- [ ] CHECKPOINT 3 — approvazione dell'estensione R6 della specifica (§2.5) e risposta a Q11–Q14; attesa dell'ok prima del codice
-- [ ] T015 R6 modello e interfaccia: `Asset.nis_relevant`, `0009` rigenerata secondo Q11 (database di sviluppo, `test_netbox` e harness riportati a `0008` prima), form (`AssetForm`, filtro, bulk edit, import CSV), filtri (`nis_relevant` su Asset, `asset_nis_relevant` sui record), colonne (`AssetTable`, `DecommissioningRecordTable`), righe in `asset.html` e `decommissioningrecord.html` — requisiti: R6, R5 — test: tests/test_nis_relevant.py
+- [x] CHECKPOINT 3 — approvazione dell'estensione R6 della specifica (§2.5) e risposta a Q11–Q14; attesa dell'ok prima del codice — ok dell'utente — 2026-10-20
+- [x] T015 R6 modello e interfaccia: `Asset.nis_relevant`, `0009` rigenerata secondo Q11 (database di sviluppo, `test_netbox` e harness riportati a `0008` prima), form (`AssetForm`, filtro, bulk edit, import CSV), filtri (`nis_relevant` su Asset, `asset_nis_relevant` sui record), colonne (`AssetTable`, `DecommissioningRecordTable`), righe in `asset.html` e `decommissioningrecord.html`; colonna di default anche in `EnhancedAssetTable` — requisiti: R6, R5 — test: tests/test_nis_relevant.py — commit (pending) — 2026-10-20
 - [ ] T016 R6 API e GraphQL: `nis_relevant` in `AssetSerializer` (non in `brief`), campo sul tipo GraphQL, filtro `nis_relevant` in `InventoryMonitorAssetFilter`, `/api/schema/` — requisiti: R6 — test: tests/test_nis_relevant.py
+- [ ] CHECKPOINT 2 — prova manuale da browser con lo scenario in 14 passi (checkpoint B del prompt), più `nis_relevant` (scheda, form, colonna, filtro, bulk edit, CSV, API); attesa dell'ok
 - [ ] T012 Documentazione e versione: `docs/decommissioning-record.md` (incluso `nis_relevant`), README (incluse le chiavi R4), CHANGELOG `15.3.0` (incluso R6), `version.py` (passo 9) — requisiti: R4, R5, R6, D1, D5, D6, D12 — test: —
 - [ ] T013 Verifica finale: suite su database di test ricreato, `makemigrations --check`, ruff, `migrate 0008` e ritorno, tabella requisito → test definitiva, `git log` (passo 10) — requisiti: §6 prompt — test: suite completa

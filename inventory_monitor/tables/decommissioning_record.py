@@ -14,6 +14,7 @@ class DecommissioningRecordTable(PrimaryModelTable):
     asset = tables.Column(linkify=True, verbose_name=_("Asset"))
     serial = tables.Column(accessor="asset__serial", verbose_name=_("Serial"))
     asset_type = tables.Column(accessor="asset__type", linkify=True, verbose_name=_("Type"))
+    asset_nis_relevant = columns.BooleanColumn(accessor="asset__nis_relevant", verbose_name=_("NIS2 relevant"))
     technical_decommission_date = columns.DateColumn()
     technical_decommission_operator = tables.Column(linkify=True)
     sanitization_date = columns.DateColumn()
@@ -35,6 +36,7 @@ class DecommissioningRecordTable(PrimaryModelTable):
             "asset",
             "serial",
             "asset_type",
+            "asset_nis_relevant",
             "technical_decommission_date",
             "technical_decommission_operator",
             "sanitization_date",

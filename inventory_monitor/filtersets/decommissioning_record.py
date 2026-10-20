@@ -19,6 +19,7 @@ class DecommissioningRecordFilterSet(PrimaryModelFilterSet):
     )
     # Exact match; partial matches go through q
     serial = MultiValueCharFilter(field_name="asset__serial", label="Asset serial")
+    asset_nis_relevant = django_filters.BooleanFilter(field_name="asset__nis_relevant", label="Asset NIS2 relevant")
     sanitization_method = django_filters.MultipleChoiceFilter(choices=[])
     sanitization_method_configured = django_filters.BooleanFilter(
         method="filter_sanitization_method_configured",

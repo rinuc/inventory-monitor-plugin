@@ -125,6 +125,15 @@ class Asset(ContactsMixin, PrimaryModel, DateStatusMixin, ImageAttachmentsMixin)
     )
 
     #
+    # Classification
+    #
+    nis_relevant = models.BooleanField(
+        default=False,
+        verbose_name=_("NIS2 relevant"),
+        help_text=_("The asset is relevant for NIS2 compliance"),
+    )
+
+    #
     # Additional information
     #
     project = models.CharField(max_length=32, blank=True, null=True)
