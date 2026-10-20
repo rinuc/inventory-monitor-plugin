@@ -214,6 +214,15 @@ class DateBadgeColumn(CachedTemplateColumn):
         return value.isoformat() if value else None
 
 
+def render_configured_choice(key, value):
+    """HTML of a value of a configurable choice list (R4): its configured label, or a warning
+    badge with "<value> (not in configuration)" for a value removed from the configuration.
+    An empty value renders as an empty string."""
+    if not value or is_configured(key, value):
+        return choice_display(key, value)
+    return format_html('<span class="badge text-bg-warning">{}</span>', choice_display(key, value))
+
+
 class ConfiguredChoiceColumn(django_tables2.Column):
     """A value of a configurable choice list (R4), shown by its configured label.
 
@@ -226,9 +235,7 @@ class ConfiguredChoiceColumn(django_tables2.Column):
         super().__init__(*args, **kwargs)
 
     def render(self, value):
-        if is_configured(self.choice_key, value):
-            return choice_display(self.choice_key, value)
-        return format_html('<span class="badge text-bg-warning">{}</span>', choice_display(self.choice_key, value))
+        return render_configured_choice(self.choice_key, value)
 
     def value(self, value, **kwargs):
         return choice_display(self.choice_key, value)

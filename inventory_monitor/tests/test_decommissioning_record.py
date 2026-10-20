@@ -1,4 +1,4 @@
-"""Model layer of the decommissioning record (R2, R3, V0–V7, D2, D7).
+"""Model layer of the decommissioning record (R2, R3, V0–V7, D2, D7, P6).
 
 Rules live in Model.clean(), which forms, bulk edit, CSV import and API
 serializers all reach through full_clean(); the per-channel tests come with
@@ -17,6 +17,7 @@ from django.db.models import ProtectedError
 from django.test import RequestFactory, TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from netbox.context_managers import event_tracking
+from netbox.search.backends import search_backend
 from tenancy.models import Contact
 from users.models import User
 
@@ -415,3 +416,45 @@ class AssetTypeDecommissioningRequirementsTest(TestCase):
             with self.assertRaises(ValidationError) as cm:
                 asset_type.full_clean()
             self.assertEqual(error_codes(cm.exception), {"decommissioning_requirements": ["not_configured"]})
+
+
+class SearchTest(DecommissioningRecordTestCase):
+    """Global search finds a record by its document and by the serial of its asset (P6)."""
+
+    def search(self, value):
+        return [(result.object_type.model_class(), result.object_id) for result in search_backend.search(value)]
+
+    def make_indexed_record(self, serial="SN-1", **kwargs):
+        # Search indexing is deferred to the commit of the transaction, in one flush per transaction:
+        # the asset and the record are both created inside the block, or the record would join a
+        # flush registered before it
+        with self.captureOnCommitCallbacks(execute=True):
+            asset = self.make_asset(serial, lifecycle_status=DISPOSED)
+            return DecommissioningRecord.objects.create(asset=asset, **kwargs)
+
+    def test_by_disposal_document(self):
+        record = self.make_indexed_record(disposal_document="RAEE 2026/123")
+        self.assertIn((DecommissioningRecord, record.pk), self.search("RAEE 2026/123"))
+
+    def test_by_asset_serial(self):
+        record = self.make_indexed_record("SN-SEARCH-1")
+        self.assertIn((DecommissioningRecord, record.pk), self.search("SN-SEARCH-1"))
+
+    def test_serial_change_reindexes_record(self):
+        record = self.make_indexed_record("SN-OLD")
+        asset = record.asset
+        asset.serial = "SN-NEW"
+        with self.captureOnCommitCallbacks(execute=True):
+            asset.save()
+        self.assertIn((DecommissioningRecord, record.pk), self.search("SN-NEW"))
+        self.assertNotIn((DecommissioningRecord, record.pk), self.search("SN-OLD"))
+
+    def test_unchanged_serial_runs_no_record_query(self):
+        asset = Asset.objects.get(pk=self.make_indexed_record("SN-SAME").asset_id)
+        asset.description = "changed"
+        with CaptureQueriesContext(connection) as ctx:
+            asset.save()
+        self.assertFalse(
+            [q for q in ctx.captured_queries if DecommissioningRecord._meta.db_table in q["sql"]],
+            "an unchanged serial must not look up the record",
+        )

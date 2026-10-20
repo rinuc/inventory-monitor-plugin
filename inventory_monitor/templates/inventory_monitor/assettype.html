@@ -3,6 +3,7 @@
 {% load plugins %}
 {% load render_table from django_tables2 %}
 {% load i18n %}
+{% load inventory_monitor %}
 {% block extra_controls %}
     {% if perms.inventory_monitor.add_asset %}
         <a href="{% url 'plugins:inventory_monitor:asset_add' %}?type={{ object.pk }}"
@@ -35,6 +36,10 @@
                                 {{ ''|placeholder }}
                             {% endif %}
                         </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "Decommissioning requirements" %}</th>
+                        <td>{{ object.decommissioning_requirements|decommissioning_requirements_display|placeholder }}</td>
                     </tr>
                 </table>
             </div>

@@ -73,6 +73,58 @@
                     </table>
                 </div>
             </div>
+            <!-- Decommissioning (NIS2): without view_decommissioningrecord, only whether a record exists (D9) -->
+            <div class="card mt-3">
+                <h5 class="card-header">
+                    {% trans "Decommissioning (NIS2)" %}
+                    {% if perms.inventory_monitor.view_decommissioningrecord %}
+                        <div class="card-actions">
+                            {% if decommissioning_record %}
+                                <a href="{{ decommissioning_record.get_absolute_url }}"
+                                   class="btn btn-primary btn-sm">
+                                    <i class="mdi mdi-eye" aria-hidden="true"></i>{% trans "View" %}
+                                </a>
+                                {% if perms.inventory_monitor.change_decommissioningrecord %}
+                                    <a href="{% url 'plugins:inventory_monitor:decommissioningrecord_edit' pk=decommissioning_record.pk %}?return_url={{ request.path }}"
+                                       class="btn btn-warning btn-sm">
+                                        <i class="mdi mdi-pencil" aria-hidden="true"></i>{% trans "Edit" %}
+                                    </a>
+                                {% endif %}
+                                {% if perms.inventory_monitor.delete_decommissioningrecord %}
+                                    <a href="{% url 'plugins:inventory_monitor:decommissioningrecord_delete' pk=decommissioning_record.pk %}?return_url={{ request.path }}"
+                                       class="btn btn-danger btn-sm">
+                                        <i class="mdi mdi-trash-can-outline" aria-hidden="true"></i>{% trans "Delete" %}
+                                    </a>
+                                {% endif %}
+                            {% elif perms.inventory_monitor.add_decommissioningrecord %}
+                                <a href="{% url 'plugins:inventory_monitor:decommissioningrecord_add' %}?asset={{ object.pk }}&return_url={{ request.path }}"
+                                   class="btn btn-success btn-sm">
+                                    <i class="mdi mdi-plus-thick" aria-hidden="true"></i>{% trans "Add decommissioning record" %}
+                                </a>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </h5>
+                <div class="card-body">
+                    {% if decommissioning_record and perms.inventory_monitor.view_decommissioningrecord %}
+                        {% include "inventory_monitor/inc/decommissioning_record_attrs.html" with record=decommissioning_record %}
+                    {% elif decommissioning_record %}
+                        <span class="badge text-bg-info">{% trans "Record present" %}</span>
+                    {% else %}
+                        <span class="text-muted">{% trans "No record" %}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card mt-3">
+                <h5 class="card-header">{% trans "Last related device info" %}</h5>
+                <div class="card-body">
+                    {% if object.last_related_info %}
+                        <pre>{{ object.last_related_info }}</pre>
+                    {% else %}
+                        {{ ''|placeholder }}
+                    {% endif %}
+                </div>
+            </div>
         </div>
         <!-- Right column: Additional Asset Information -->
         <div class="col col-md-6">

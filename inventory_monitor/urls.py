@@ -63,6 +63,15 @@ urlpatterns = (
     ## RMA
     path("rmas/", include(get_model_urls("inventory_monitor", "rma", detail=False))),
     path("rmas/<int:pk>/", include(get_model_urls("inventory_monitor", "rma"))),
+    ## Decommissioning Record
+    path(
+        "decommissioning-records/",
+        include(get_model_urls("inventory_monitor", "decommissioningrecord", detail=False)),
+    ),
+    path(
+        "decommissioning-records/<int:pk>/",
+        include(get_model_urls("inventory_monitor", "decommissioningrecord")),
+    ),
     ## Contractor
     path("contractors/", include(get_model_urls("inventory_monitor", "contractor", detail=False))),
     path("contractors/<int:pk>/", include(get_model_urls("inventory_monitor", "contractor"))),

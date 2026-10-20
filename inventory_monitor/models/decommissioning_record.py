@@ -107,6 +107,9 @@ class DecommissioningRecord(PrimaryModel):
     def get_absolute_url(self):
         return reverse("plugins:inventory_monitor:decommissioningrecord", args=[self.pk])
 
+    def get_asset_serial_for_search(self):
+        return self.asset.serial
+
     def is_sanitization_method_configured(self):
         return is_configured(SANITIZATION_METHOD_CHOICES, self.sanitization_method)
 

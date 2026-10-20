@@ -1,15 +1,20 @@
-"""User interface of the decommissioning record (R3, R4, D3, D4, V0, V6).
+"""User interface of the decommissioning record (R1, R3, R4, D3, D4, D9, V0, V6).
 
 Forms, CSV import, filters and tables of the record, plus the new fields, filter
-and columns on Asset. The rules themselves live in Model.clean() and are tested
+and columns on Asset; then the views, the panels of the Asset and AssetType
+pages and the menu. The rules themselves live in Model.clean() and are tested
 in test_decommissioning_record.py; here they are checked through each channel.
 """
 
 import datetime
 from unittest import mock
 
+from django.db import connection
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
+from django.urls import reverse
 from tenancy.models import Contact
+from utilities.testing import TestCase as NetBoxTestCase
 
 from inventory_monitor.filtersets import AssetFilterSet, DecommissioningRecordFilterSet
 from inventory_monitor.forms import (
@@ -22,6 +27,7 @@ from inventory_monitor.forms import (
     DecommissioningRecordForm,
 )
 from inventory_monitor.models import Asset, AssetType, DecommissioningRecord, LifecycleStatusChoices
+from inventory_monitor.navigation import menu
 from inventory_monitor.tables import AssetTable, DecommissioningRecordTable
 
 TODAY = datetime.date(2026, 10, 20)
@@ -516,6 +522,13 @@ class AssetDecommissioningUITest(DecommissioningUITestCase):
         self.assertIn("No", str(without_record.get_cell("decommissioning_record")))
         self.assertIn(without_record.get_cell_value("technical_decommission_date"), ("", None))
 
+    def test_asset_table_links_the_record(self):
+        record = self.make_record(self.retired)
+        table = AssetTable(Asset.objects.filter(pk__in=[self.retired.pk, self.in_use.pk]).order_by("pk"))
+        with_record, without_record = table.rows
+        self.assertIn(record.get_absolute_url(), str(with_record.get_cell("decommissioning_record")))
+        self.assertNotIn("href", str(without_record.get_cell("decommissioning_record")))
+
     def test_asset_form_last_related_info(self):
         form = AssetForm(
             data=self.asset_form_data(self.in_use, last_related_info="device: old (id 9)"), instance=self.in_use
@@ -541,3 +554,408 @@ class AssetDecommissioningUITest(DecommissioningUITestCase):
         form = asset_import_form({"lifecycle_status": RETIRED}, instance=self.disposed)
         self.assertFalse(form.is_valid())
         self.assertEqual(error_codes(form)["lifecycle_status"], ["disposed_asset"])
+
+
+#
+# Views (T009)
+#
+
+
+def url(name, *args):
+    return reverse(f"plugins:inventory_monitor:{name}", args=args)
+
+
+class DecommissioningViewTestCase(NetBoxTestCase):
+    """Views through the test client, as a user holding only the permissions each test adds."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.switch = AssetType.objects.create(name="Switch", slug="switch", decommissioning_requirements="zeroize")
+        cls.mario = Contact.objects.create(name="Mario Rossi")
+        cls.anna = Contact.objects.create(name="Anna Bianchi")
+
+        cls.retired = Asset.objects.create(
+            serial="SN-RET", partnumber="PN-1", type=cls.switch, lifecycle_status=RETIRED
+        )
+        cls.disposed = Asset.objects.create(serial="SN-DIS", lifecycle_status=DISPOSED)
+        cls.in_use = Asset.objects.create(serial="SN-USE", lifecycle_status=IN_USE)
+
+    def setUp(self):
+        super().setUp()
+        now = datetime.datetime(2026, 10, 20, 12, 0, tzinfo=datetime.UTC)
+        patcher = mock.patch("django.utils.timezone.now", return_value=now)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def make_record(self, asset, **kwargs):
+        return DecommissioningRecord.objects.create(asset=asset, **kwargs)
+
+    def full_record(self):
+        Asset.objects.filter(pk=self.disposed.pk).update(
+            type=self.switch, last_related_info="snapshot_date: 2026-10-19T10:15:00+02:00\ndevice: sw-01 (id 1)"
+        )
+        return self.make_record(
+            self.disposed,
+            technical_decommission_date=LAST_WEEK,
+            technical_decommission_operator=self.mario,
+            sanitization_date=YESTERDAY,
+            sanitization_method="zeroize",
+            sanitization_operator=self.anna,
+            disposal_date=TODAY,
+            disposal_document="RAEE 2026/123",
+        )
+
+    def show_columns(self, table, columns):
+        self.user.config.set(f"tables.{table}.columns", columns, commit=True)
+
+    def count_queries(self, path):
+        with CaptureQueriesContext(connection) as ctx:
+            response = self.client.get(path)
+        self.assertEqual(response.status_code, 200)
+        return len(ctx)
+
+
+class DecommissioningRecordViewsTest(DecommissioningViewTestCase):
+    def test_list(self):
+        self.add_permissions("inventory_monitor.view_decommissioningrecord")
+        self.full_record()
+        response = self.client.get(url("decommissioningrecord_list"))
+        self.assertContains(response, "SN-DIS")
+        self.assertContains(response, "RAEE 2026/123")
+
+    def test_list_export_has_register_columns(self):
+        """§1 of the spec: the CSV export of the list is the register."""
+        self.add_permissions("inventory_monitor.view_decommissioningrecord")
+        self.full_record()
+        response = self.client.get(url("decommissioningrecord_list") + "?export=table")
+        header = response.content.decode().splitlines()[0]
+        for column in (
+            "Asset",
+            "Serial",
+            "Technical decommission date",
+            "Technical decommission operator",
+            "Sanitization date",
+            "Sanitization method",
+            "Sanitization operator",
+            "Disposal date",
+            "Disposal document",
+        ):
+            with self.subTest(column=column):
+                self.assertIn(column, header)
+
+    def test_list_constant_queries(self):
+        self.add_permissions("inventory_monitor.view_decommissioningrecord")
+        self.show_columns("DecommissioningRecordTable", list(DecommissioningRecordTable.Meta.fields))
+        assets = [Asset.objects.create(serial=f"SN-N{i}", type=self.switch, lifecycle_status=RETIRED) for i in range(5)]
+        for asset in assets[:2]:
+            self.make_record(asset, technical_decommission_operator=self.mario, sanitization_operator=self.anna)
+        two = self.count_queries(url("decommissioningrecord_list"))
+        for asset in assets[2:]:
+            self.make_record(asset, technical_decommission_operator=self.anna, sanitization_operator=self.mario)
+        self.assertEqual(self.count_queries(url("decommissioningrecord_list")), two)
+
+    def test_detail(self):
+        self.add_permissions("inventory_monitor.view_decommissioningrecord")
+        record = self.full_record()
+        response = self.client.get(record.get_absolute_url())
+        self.assertContains(response, self.disposed.get_absolute_url())
+        self.assertContains(response, "SN-DIS")
+        self.assertContains(response, self.switch.get_absolute_url())
+        # The requirements of the type, as a reminder, and the method, both by their label
+        self.assertContains(response, "Zeroize (Juniper)", count=2)
+        self.assertContains(response, self.mario.get_absolute_url())
+        self.assertContains(response, self.anna.get_absolute_url())
+        self.assertContains(response, "2026-10-13")
+        self.assertContains(response, "RAEE 2026/123")
+        self.assertContains(
+            response, "<pre>snapshot_date: 2026-10-19T10:15:00+02:00\ndevice: sw-01 (id 1)</pre>", html=True
+        )
+
+    @override_settings(PLUGINS_CONFIG=WITHOUT_ZEROIZE)
+    def test_detail_badge_for_removed_method(self):
+        self.add_permissions("inventory_monitor.view_decommissioningrecord")
+        record = self.make_record(self.retired, sanitization_date=TODAY, sanitization_method="zeroize")
+        response = self.client.get(record.get_absolute_url())
+        self.assertContains(
+            response, '<span class="badge text-bg-warning">zeroize (not in configuration)</span>', html=True
+        )
+
+    def test_detail_requires_permission(self):
+        record = self.make_record(self.retired)
+        self.assertEqual(self.client.get(record.get_absolute_url()).status_code, 403)
+
+    def test_add_prefills_asset_from_query(self):
+        self.add_permissions("inventory_monitor.add_decommissioningrecord", "inventory_monitor.view_asset")
+        response = self.client.get(url("decommissioningrecord_add") + f"?asset={self.retired.pk}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(str(response.context["form"].initial["asset"]), str(self.retired.pk))
+        # The reminder of the requirements of the asset type
+        self.assertContains(response, "Zeroize (Juniper)")
+
+    def test_add(self):
+        # Operators are chosen among the contacts the user can view
+        self.add_permissions(
+            "inventory_monitor.add_decommissioningrecord", "inventory_monitor.view_asset", "tenancy.view_contact"
+        )
+        return_url = self.retired.get_absolute_url()
+        response = self.client.post(
+            url("decommissioningrecord_add") + f"?return_url={return_url}",
+            {
+                "asset": self.retired.pk,
+                "technical_decommission_date": "2026-10-20",
+                "technical_decommission_operator": self.mario.pk,
+                "return_url": return_url,
+            },
+        )
+        self.assertRedirects(response, return_url, fetch_redirect_response=False)
+        record = DecommissioningRecord.objects.get(asset=self.retired)
+        self.assertEqual(record.technical_decommission_date, TODAY)
+        self.assertEqual(record.technical_decommission_operator, self.mario)
+
+    def test_add_reports_model_rules(self):
+        self.add_permissions("inventory_monitor.add_decommissioningrecord", "inventory_monitor.view_asset")
+        response = self.client.post(
+            url("decommissioningrecord_add"),
+            {"asset": self.in_use.pk, "technical_decommission_date": "2026-10-20"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            error_codes(response.context["form"])["technical_decommission_date"], ["asset_not_decommissioned"]
+        )
+        self.assertFalse(DecommissioningRecord.objects.exists())
+
+    def test_edit_keeps_asset(self):
+        """D3: the asset field is locked on edit, a submitted asset is ignored."""
+        self.add_permissions("inventory_monitor.change_decommissioningrecord", "inventory_monitor.view_asset")
+        record = self.make_record(self.retired)
+        response = self.client.post(
+            url("decommissioningrecord_edit", record.pk), {"asset": self.disposed.pk, "disposal_document": "RAEE 1"}
+        )
+        self.assertEqual(response.status_code, 302)
+        record.refresh_from_db()
+        self.assertEqual(record.asset, self.retired)
+        self.assertEqual(record.disposal_document, "RAEE 1")
+
+    def test_delete_keeps_asset(self):
+        self.add_permissions("inventory_monitor.delete_decommissioningrecord")
+        record = self.make_record(self.retired)
+        # The event queue serializes deleted objects with the REST serializer, which arrives with
+        # the API (T010); until then the event is not enqueued.
+        with mock.patch("core.signals.enqueue_event"):
+            response = self.client.post(url("decommissioningrecord_delete", record.pk), {"confirm": True})
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(DecommissioningRecord.objects.filter(pk=record.pk).exists())
+        self.assertTrue(Asset.objects.filter(pk=self.retired.pk).exists())
+
+    def test_bulk_edit(self):
+        self.add_permissions(
+            "inventory_monitor.view_decommissioningrecord",
+            "inventory_monitor.change_decommissioningrecord",
+            "tenancy.view_contact",
+        )
+        records = [self.make_record(self.retired), self.make_record(self.disposed)]
+        response = self.client.post(
+            url("decommissioningrecord_bulk_edit"),
+            {
+                "pk": [r.pk for r in records],
+                "_apply": True,
+                "technical_decommission_date": "2026-10-19",
+                "technical_decommission_operator": self.mario.pk,
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        for record in records:
+            record.refresh_from_db()
+            self.assertEqual(record.technical_decommission_date, YESTERDAY)
+            self.assertEqual(record.technical_decommission_operator, self.mario)
+
+    def test_bulk_delete(self):
+        self.add_permissions(
+            "inventory_monitor.view_decommissioningrecord", "inventory_monitor.delete_decommissioningrecord"
+        )
+        records = [self.make_record(self.retired), self.make_record(self.disposed)]
+        # As in test_delete_keeps_asset: no REST serializer for the event queue before T010
+        with mock.patch("core.signals.enqueue_event"):
+            response = self.client.post(
+                url("decommissioningrecord_bulk_delete"),
+                {"pk": [r.pk for r in records], "confirm": True, "_confirm": True},
+            )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(DecommissioningRecord.objects.exists())
+        self.assertEqual(Asset.objects.filter(pk__in=[self.retired.pk, self.disposed.pk]).count(), 2)
+
+    def test_bulk_import(self):
+        self.add_permissions(
+            "inventory_monitor.add_decommissioningrecord", "inventory_monitor.view_asset", "tenancy.view_contact"
+        )
+        csv = (
+            "asset_serial,technical_decommission_date,technical_decommission_operator_name\n"
+            "SN-RET,2026-10-19,Mario Rossi"
+        )
+        response = self.client.post(
+            url("decommissioningrecord_bulk_import"), {"data": csv, "format": "csv", "csv_delimiter": ","}
+        )
+        self.assertEqual(response.status_code, 302)
+        record = DecommissioningRecord.objects.get(asset=self.retired)
+        self.assertEqual(record.technical_decommission_operator, self.mario)
+
+    def test_menu_entry(self):
+        items = {item.link: item for group in menu.groups for item in group.items}
+        item = items["plugins:inventory_monitor:decommissioningrecord_list"]
+        self.assertEqual(item.permissions, ["inventory_monitor.view_decommissioningrecord"])
+        self.assertEqual(
+            [button.link for button in item.buttons],
+            [
+                "plugins:inventory_monitor:decommissioningrecord_add",
+                "plugins:inventory_monitor:decommissioningrecord_bulk_import",
+            ],
+        )
+        group = next(g for g in menu.groups if item in g.items)
+        self.assertEqual(group.label, "Assets")
+
+
+class AssetPageDecommissioningTest(DecommissioningViewTestCase):
+    """The Last related device info and Decommissioning (NIS2) panels of the Asset page (R1, R3, D9)."""
+
+    def get_asset(self, asset):
+        response = self.client.get(asset.get_absolute_url())
+        self.assertEqual(response.status_code, 200)
+        return response.content.decode()
+
+    def add_url(self, asset):
+        return url("decommissioningrecord_add") + f"?asset={asset.pk}&return_url={asset.get_absolute_url()}"
+
+    def test_last_related_info_panel(self):
+        self.add_permissions("inventory_monitor.view_asset")
+        Asset.objects.filter(pk=self.retired.pk).update(last_related_info="device: sw-01 (id 1)\nsite: Roma")
+        response = self.client.get(self.retired.get_absolute_url())
+        self.assertContains(response, "Last related device info")
+        self.assertContains(response, "<pre>device: sw-01 (id 1)\nsite: Roma</pre>", html=True)
+
+    def test_last_related_info_panel_empty(self):
+        self.add_permissions("inventory_monitor.view_asset")
+        content = self.get_asset(self.retired)
+        self.assertIn("Last related device info", content)
+        self.assertNotIn("<pre>", content)
+
+    def test_add_button_without_record(self):
+        self.add_permissions(
+            "inventory_monitor.view_asset",
+            "inventory_monitor.view_decommissioningrecord",
+            "inventory_monitor.add_decommissioningrecord",
+        )
+        content = self.get_asset(self.retired)
+        self.assertIn("Decommissioning (NIS2)", content)
+        self.assertIn(self.add_url(self.retired), content)
+        self.assertIn("No record", content)
+
+    def test_no_add_button_without_add_permission(self):
+        self.add_permissions("inventory_monitor.view_asset", "inventory_monitor.view_decommissioningrecord")
+        content = self.get_asset(self.retired)
+        self.assertIn("No record", content)
+        self.assertNotIn(self.add_url(self.retired), content)
+
+    def test_record_details_and_buttons(self):
+        self.add_permissions(
+            "inventory_monitor.view_asset",
+            "inventory_monitor.view_decommissioningrecord",
+            "inventory_monitor.add_decommissioningrecord",
+            "inventory_monitor.change_decommissioningrecord",
+            "inventory_monitor.delete_decommissioningrecord",
+        )
+        record = self.full_record()
+        content = self.get_asset(self.disposed)
+        for text in (
+            "2026-10-13",
+            "2026-10-19",
+            "2026-10-20",
+            "Zeroize (Juniper)",
+            "Mario Rossi",
+            "Anna Bianchi",
+            "RAEE 2026/123",
+            record.get_absolute_url(),
+            url("decommissioningrecord_edit", record.pk),
+            url("decommissioningrecord_delete", record.pk),
+        ):
+            with self.subTest(text=text):
+                self.assertIn(text, content)
+        # No second record for the same asset
+        self.assertNotIn(self.add_url(self.disposed), content)
+
+    def test_record_without_change_or_delete_permission(self):
+        self.add_permissions("inventory_monitor.view_asset", "inventory_monitor.view_decommissioningrecord")
+        record = self.full_record()
+        content = self.get_asset(self.disposed)
+        self.assertIn("RAEE 2026/123", content)
+        self.assertNotIn(url("decommissioningrecord_edit", record.pk), content)
+        self.assertNotIn(url("decommissioningrecord_delete", record.pk), content)
+
+    @override_settings(PLUGINS_CONFIG=WITHOUT_ZEROIZE)
+    def test_record_badge_for_removed_method(self):
+        self.add_permissions("inventory_monitor.view_asset", "inventory_monitor.view_decommissioningrecord")
+        self.make_record(self.retired, sanitization_date=TODAY, sanitization_method="zeroize")
+        response = self.client.get(self.retired.get_absolute_url())
+        self.assertContains(
+            response, '<span class="badge text-bg-warning">zeroize (not in configuration)</span>', html=True
+        )
+
+    def test_without_view_permission_only_presence(self):
+        """D9: view_asset without view_decommissioningrecord tells only whether a record exists."""
+        self.add_permissions("inventory_monitor.view_asset", "inventory_monitor.add_decommissioningrecord")
+        record = self.full_record()
+        content = self.get_asset(self.disposed)
+        self.assertIn("Decommissioning (NIS2)", content)
+        self.assertIn("Record present", content)
+        for text in ("RAEE 2026/123", "Mario Rossi", "Zeroize", "2026-10-13", record.get_absolute_url()):
+            with self.subTest(text=text):
+                self.assertNotIn(text, content)
+        self.assertNotIn(self.add_url(self.disposed), content)
+
+    def test_without_view_permission_no_record(self):
+        self.add_permissions("inventory_monitor.view_asset", "inventory_monitor.add_decommissioningrecord")
+        content = self.get_asset(self.retired)
+        self.assertIn("No record", content)
+        self.assertNotIn(self.add_url(self.retired), content)
+
+    def test_v6_asset_bulk_edit(self):
+        self.add_permissions("inventory_monitor.view_asset", "inventory_monitor.change_asset")
+        self.make_record(self.retired, technical_decommission_date=YESTERDAY)
+        response = self.client.post(
+            url("asset_bulk_edit"), {"pk": [self.retired.pk], "_apply": True, "lifecycle_status": IN_USE}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "it must stay Retired or Disposed")
+        self.retired.refresh_from_db()
+        self.assertEqual(self.retired.lifecycle_status, RETIRED)
+
+    def test_asset_list_constant_queries_with_decommissioning_columns(self):
+        self.add_permissions("inventory_monitor.view_asset")
+        self.show_columns(
+            "EnhancedAssetTable",
+            ["serial", "decommissioning_record", "technical_decommission_date", "sanitization_date", "disposal_date"],
+        )
+        assets = [Asset.objects.create(serial=f"SN-L{i}", lifecycle_status=RETIRED) for i in range(5)]
+        for asset in assets[:2]:
+            self.make_record(asset, technical_decommission_date=YESTERDAY)
+        two = self.count_queries(url("asset_list"))
+        for asset in assets[2:]:
+            self.make_record(asset, technical_decommission_date=YESTERDAY)
+        self.assertEqual(self.count_queries(url("asset_list")), two)
+
+
+class AssetTypePageDecommissioningTest(DecommissioningViewTestCase):
+    def test_requirements_row(self):
+        self.add_permissions("inventory_monitor.view_assettype")
+        response = self.client.get(self.switch.get_absolute_url())
+        self.assertContains(response, "Decommissioning requirements")
+        self.assertContains(response, "Zeroize (Juniper)")
+
+    @override_settings(
+        PLUGINS_CONFIG={"inventory_monitor": {"decommissioning_requirements_choices": [("clear", "Clear")]}}
+    )
+    def test_requirements_badge_for_removed_value(self):
+        self.add_permissions("inventory_monitor.view_assettype")
+        response = self.client.get(self.switch.get_absolute_url())
+        self.assertContains(
+            response, '<span class="badge text-bg-warning">zeroize (not in configuration)</span>', html=True
+        )

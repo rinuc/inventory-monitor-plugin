@@ -71,7 +71,11 @@ ASSOCIATED_EXTERNAL_INVENTORY_ASSETS = """
 
 
 TEMPLATE_DECOMMISSIONING_RECORD = """
-  {% checkmark value %}
+  {% if value %}
+    <a href="{{ value.get_absolute_url }}">{% checkmark value %}</a>
+  {% else %}
+    {% checkmark value %}
+  {% endif %}
 """
 
 

@@ -17,12 +17,25 @@ from inventory_monitor.models import Asset
 class AssetView(generic.ObjectView):
     queryset = models.Asset.objects.all()
 
+    def get_extra_context(self, request, instance):
+        # Not restricted to the user: without view_decommissioningrecord the panel only tells
+        # whether a record exists, and the template shows no field of it (D9)
+        record = (
+            models.DecommissioningRecord.objects.select_related(
+                "technical_decommission_operator", "sanitization_operator"
+            )
+            .filter(asset=instance)
+            .first()
+        )
+        return {"decommissioning_record": record}
+
 
 @register_model_view(models.Asset, "list", path="", detail=False)
 class AssetListView(generic.ObjectListView):
     queryset = (
         models.Asset.objects.all()
         .select_related("type", "order_contract", "assigned_object_type")  # Use select_related for FK fields
+        .select_related("decommissioning_record")  # The optional decommissioning columns
         .prefetch_related("services")
         .prefetch_related("tags")
         .prefetch_related("external_inventory_items")

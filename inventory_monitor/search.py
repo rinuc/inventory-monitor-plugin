@@ -7,6 +7,7 @@ from inventory_monitor.models import (
     AssetType,
     Contract,
     Contractor,
+    DecommissioningRecord,
     ExternalInventory,
     Invoice,
     Probe,
@@ -107,6 +108,27 @@ class AssetTypeIndex(SearchIndex):
         ("description", 500),
     )
     display_attrs = ("name", "description")
+
+
+@register_search
+class DecommissioningRecordIndex(SearchIndex):
+    model = DecommissioningRecord
+    fields = (
+        ("get_asset_serial_for_search", 100),
+        ("disposal_document", 500),
+        ("description", 500),
+        ("comments", 5000),
+    )
+    display_attrs = ("asset", "technical_decommission_date", "sanitization_date", "disposal_date")
+
+    # get_asset_serial_for_search is a method of DecommissioningRecord; Asset.save() reindexes the
+    # record when the serial changes
+    @staticmethod
+    def get_field_value(instance, field_name):
+        value = getattr(instance, field_name)
+        if callable(value):
+            value = value()
+        return str(value) if value else None
 
 
 @register_search

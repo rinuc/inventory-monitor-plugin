@@ -210,20 +210,36 @@ class Asset(ContactsMixin, PrimaryModel, DateStatusMixin, ImageAttachmentsMixin)
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Persisted assignment, to detect changes on save (last_related_info, R1)
+        # Persisted values, to detect changes on save: assignment (last_related_info, R1), serial (search, P6)
         self._original_assigned_object_type_id = self.__dict__.get("assigned_object_type_id")
         self._original_assigned_object_id = self.__dict__.get("assigned_object_id")
+        self._original_serial = self.__dict__.get("serial")
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
         if update_fields is None or {"assigned_object_type", "assigned_object_id"} & set(update_fields):
             if self._refresh_last_related_info() and update_fields is not None:
                 kwargs["update_fields"] = {*update_fields, "last_related_info"}
+        serial_changed = not self._state.adding and self.serial != self._original_serial
 
         super().save(*args, **kwargs)
 
+        if serial_changed and (update_fields is None or "serial" in update_fields):
+            self._reindex_decommissioning_record()
+
         self._original_assigned_object_type_id = self.assigned_object_type_id
         self._original_assigned_object_id = self.assigned_object_id
+        self._original_serial = self.serial
+
+    def _reindex_decommissioning_record(self):
+        """The search index of the record holds the serial of its asset (P6)."""
+        from netbox.search.backends import search_backend
+
+        from inventory_monitor.models.decommissioning_record import DecommissioningRecord
+
+        if record := DecommissioningRecord.objects.filter(asset_id=self.pk).first():
+            record.asset = self
+            search_backend.cache(record)
 
     def _refresh_last_related_info(self):
         """Snapshot the current or the outgoing Device into last_related_info (spec §3.2, D10).

@@ -55,6 +55,17 @@ from inventory_monitor.views.contractor import (
     ContractorBulkImportView,
 )
 
+# Decommissioning Record views
+from inventory_monitor.views.decommissioning_record import (
+    DecommissioningRecordView,
+    DecommissioningRecordListView,
+    DecommissioningRecordEditView,
+    DecommissioningRecordDeleteView,
+    DecommissioningRecordBulkEditView,
+    DecommissioningRecordBulkDeleteView,
+    DecommissioningRecordBulkImportView,
+)
+
 # External Inventory views
 from inventory_monitor.views.external_inventory import (
     ExternalInventoryView,
@@ -144,6 +155,14 @@ __all__ = [
     "ContractorBulkEditView",
     "ContractorBulkDeleteView",
     "ContractorBulkImportView",
+    # Decommissioning Record views
+    "DecommissioningRecordView",
+    "DecommissioningRecordListView",
+    "DecommissioningRecordEditView",
+    "DecommissioningRecordDeleteView",
+    "DecommissioningRecordBulkEditView",
+    "DecommissioningRecordBulkDeleteView",
+    "DecommissioningRecordBulkImportView",
     # External Inventory views
     "ExternalInventoryView",
     "ExternalInventoryListView",

@@ -1,0 +1,37 @@
+{% load inventory_monitor %}
+{% load i18n %}
+{# The fields of a decommissioning record, shared by its page and the panel of the Asset page #}
+<table class="table table-hover attr-table">
+    <tr>
+        <th scope="row">{% trans "Technical decommission date" %}</th>
+        <td>{{ record.technical_decommission_date|date:"Y-m-d"|default_if_none:""|placeholder }}</td>
+    </tr>
+    <tr>
+        <th scope="row">{% trans "Technical decommission operator" %}</th>
+        <td>{{ record.technical_decommission_operator|linkify|placeholder }}</td>
+    </tr>
+    <tr>
+        <th scope="row">{% trans "Sanitization date" %}</th>
+        <td>{{ record.sanitization_date|date:"Y-m-d"|default_if_none:""|placeholder }}</td>
+    </tr>
+    <tr>
+        <th scope="row">{% trans "Sanitization method" %}</th>
+        <td>{{ record.sanitization_method|sanitization_method_display|placeholder }}</td>
+    </tr>
+    <tr>
+        <th scope="row">{% trans "Sanitization operator" %}</th>
+        <td>{{ record.sanitization_operator|linkify|placeholder }}</td>
+    </tr>
+    <tr>
+        <th scope="row">{% trans "Disposal date" %}</th>
+        <td>{{ record.disposal_date|date:"Y-m-d"|default_if_none:""|placeholder }}</td>
+    </tr>
+    <tr>
+        <th scope="row">{% trans "Disposal document" %}</th>
+        <td>{{ record.disposal_document|linebreaksbr|placeholder }}</td>
+    </tr>
+    <tr>
+        <th scope="row">{% trans "Description" %}</th>
+        <td>{{ record.description|placeholder }}</td>
+    </tr>
+</table>

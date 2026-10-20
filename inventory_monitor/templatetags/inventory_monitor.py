@@ -3,7 +3,10 @@ from django import template
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext as _
 
+from inventory_monitor.helpers import render_configured_choice
 from inventory_monitor.settings import (
+    DECOMMISSIONING_REQUIREMENTS_CHOICES,
+    SANITIZATION_METHOD_CHOICES,
     get_external_inventory_status_config_safe,
     get_external_inventory_tooltip_template,
 )
@@ -68,3 +71,15 @@ def get_content_type_param(obj):
 
     # Return the mapped param name or the model name by default
     return param_mapping.get(model_name, model_name)
+
+
+@register.filter
+def decommissioning_requirements_display(value):
+    """Label of a decommissioning requirements value, badged if removed from the configuration (R4)."""
+    return render_configured_choice(DECOMMISSIONING_REQUIREMENTS_CHOICES, value)
+
+
+@register.filter
+def sanitization_method_display(value):
+    """Label of a sanitization method, badged if removed from the configuration (R4)."""
+    return render_configured_choice(SANITIZATION_METHOD_CHOICES, value)

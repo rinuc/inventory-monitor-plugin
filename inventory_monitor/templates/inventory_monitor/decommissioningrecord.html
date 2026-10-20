@@ -1,0 +1,61 @@
+{% extends "generic/object.html" %}
+{% load plugins %}
+{% load inventory_monitor %}
+{% load i18n %}
+{% block content %}
+    <div class="row mb-3">
+        <div class="col col-md-6">
+            <div class="card">
+                <h5 class="card-header">{% trans "Asset" %}</h5>
+                <div class="card-body">
+                    <table class="table table-hover attr-table">
+                        <tr>
+                            <th scope="row">{% trans "Asset" %}</th>
+                            <td>
+                                <a href="{{ object.asset.get_absolute_url }}">{{ object.asset }}</a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">{% trans "Serial" %}</th>
+                            <td>{{ object.asset.serial|placeholder }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">{% trans "Type" %}</th>
+                            <td>{{ object.asset.type|linkify|placeholder }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">{% trans "Decommissioning requirements" %}</th>
+                            <td>{{ object.asset.type.decommissioning_requirements|decommissioning_requirements_display|placeholder }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <div class="card">
+                <h5 class="card-header">{% trans "Last related device info" %}</h5>
+                <div class="card-body">
+                    {% if object.asset.last_related_info %}
+                        <pre>{{ object.asset.last_related_info }}</pre>
+                    {% else %}
+                        {{ ''|placeholder }}
+                    {% endif %}
+                </div>
+            </div>
+            {% include "inc/panels/custom_fields.html" %}
+            {% plugin_left_page object %}
+        </div>
+        <div class="col col-md-6">
+            <div class="card">
+                <h5 class="card-header">{% trans "Decommissioning" %}</h5>
+                <div class="card-body">
+                    {% include "inventory_monitor/inc/decommissioning_record_attrs.html" with record=object %}
+                </div>
+            </div>
+            {% include "inc/panels/tags.html" %}
+            {% include "inc/panels/comments.html" %}
+            {% plugin_right_page object %}
+        </div>
+    </div>
+    <div class="row mb-3">
+        <div class="col col-md-12">{% plugin_full_width_page object %}</div>
+    </div>
+{% endblock content %}

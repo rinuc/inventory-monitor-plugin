@@ -72,6 +72,27 @@ menu = PluginMenu(
                     ],
                 ),
                 PluginMenuItem(
+                    link="plugins:inventory_monitor:decommissioningrecord_list",
+                    link_text="Decommissioning Records",
+                    permissions=["inventory_monitor.view_decommissioningrecord"],
+                    buttons=[
+                        PluginMenuButton(
+                            link="plugins:inventory_monitor:decommissioningrecord_add",
+                            title="Add Decommissioning Record",
+                            icon_class="mdi mdi-plus-thick",
+                            color=ButtonColorChoices.GREEN,
+                            permissions=["inventory_monitor.add_decommissioningrecord"],
+                        ),
+                        PluginMenuButton(
+                            link="plugins:inventory_monitor:decommissioningrecord_bulk_import",
+                            title="Import Decommissioning Records",
+                            icon_class="mdi mdi-upload",
+                            color=ButtonColorChoices.CYAN,
+                            permissions=["inventory_monitor.add_decommissioningrecord"],
+                        ),
+                    ],
+                ),
+                PluginMenuItem(
                     link="plugins:inventory_monitor:externalinventory_list",
                     link_text="External Inventory",
                     permissions=["inventory_monitor.view_externalinventory"],
