@@ -114,8 +114,8 @@ mette i `NULL` per primi in `DESC`, da qui `nulls_last`).
 Una sola migrazione `0009_decommissioning_record.py`, generata con `dev/nb.sh migrations`, solo di
 schema e reversibile: `AddField` su `Asset.last_related_info` e
 `AssetType.decommissioning_requirements`, `CreateModel` di `DecommissioningRecord` con indici.
-Nessuna `RunPython`: gli asset esistenti hanno `last_related_info = ""` fino al primo evento che lo
-valorizza (vedi Q1).
+Nessuna `RunPython`: gli asset esistenti si popolano con il comando di gestione di §3.3 (D12),
+da eseguire una volta dopo `migrate`.
 
 ---
 
@@ -200,7 +200,30 @@ importata da `models/asset.py` e da `signals.py`, nessun import circolare).
 - **Nessun `ObjectChange`** per gli asset aggiornati così (D5): l'evento è già nel changelog come
   cancellazione del Device/Module. Documentato in `docs/decommissioning-record.md`.
 
-### 3.3 Interazioni
+### 3.3 Riempimento iniziale (D12)
+
+Comando di gestione `manage.py backfill_last_related_info`
+(`inventory_monitor/management/commands/backfill_last_related_info.py`), da eseguire una volta dopo
+la migrazione `0009` (nell'harness: `docker compose exec netbox /opt/netbox/netbox/manage.py
+backfill_last_related_info`).
+
+- Considera gli asset assegnati a un `dcim.Device` o a un `dcim.Module` con `last_related_info`
+  vuoto. Per ognuno scrive l'istantanea (§3.1) del Device (per il Module: `module.device`).
+- **Non sovrascrive** campi già pieni: è idempotente, rieseguirlo non cambia nulla e non tocca testi
+  scritti a mano o istantanee di Device cancellati.
+- Salta le assegnazioni orfane (Device/Module non più esistente) e le conta nel riepilogo.
+- `--dry-run`: calcola e riporta i conteggi senza scrivere.
+- Riepilogo finale: asset aggiornati, già valorizzati (saltati), orfani (saltati).
+- Efficienza: Device e Module caricati in blocco (una query per tipo, con il `select_related` di
+  §3.1), un'istantanea per Device (riusata dagli asset dello stesso Device e dei suoi Module),
+  scrittura con `bulk_update(..., ["last_related_info"], batch_size=500)`. Le query crescono con il
+  numero di lotti, non con il numero di asset.
+- Usa lo stesso formattatore di §3.1; `snapshot_date` è l'ora di esecuzione del comando.
+- Come per D5, **nessun `ObjectChange`** per gli asset aggiornati (scrittura in blocco); il
+  riepilogo del comando è la traccia. Documentato in `docs/decommissioning-record.md`.
+- Implementato nel passo 4, insieme al resto di R1.
+
+### 3.4 Interazioni
 
 - `RMA.update_asset_serial()` (non modificato) chiama `asset.save()` senza `full_clean()`:
   assegnazione invariata ⇒ nessun effetto se il campo è pieno, calcolo se è vuoto. Nessun errore.
@@ -474,6 +497,7 @@ corretta. Una query in più solo quando il seriale cambia.
 | `inventory_monitor/migrations/0009_decommissioning_record.py` | 3 | nuova (unica) |
 | `inventory_monitor/snapshot.py` | 4 | nuovo, formattatore |
 | `inventory_monitor/signals.py` | 4 | nuovo, `pre_delete` Device/Module |
+| `inventory_monitor/management/__init__.py`, `management/commands/__init__.py`, `management/commands/backfill_last_related_info.py` | 4 | nuovo, D12 |
 | `inventory_monitor/forms/decommissioning_record.py`, `forms/__init__.py` | 5 | nuovo |
 | `inventory_monitor/forms/asset.py` | 5 | `last_related_info` in `AssetForm`, `AssetBulkImportForm`, filtro `has_decommissioning_record` |
 | `inventory_monitor/forms/asset_type.py` | 5 | campo in form, bulk edit, filtro, import |
@@ -514,6 +538,7 @@ Nomi indicativi; la tabella definitiva con i nomi reali sarà aggiornata nella v
 | R1 cancellazione Device, N+1 | idem | `test_device_delete_updates_assets_constant_queries` (2 vs 5) |
 | R1 dopo cancellazione | idem | `test_orphan_keeps_last_related_info` |
 | D11 | idem | `test_module_delete_updates_assets_constant_queries` |
+| D12 | `test_backfill_last_related_info.py` | popola Device e Module, non tocca campi pieni né non-Device, salta orfani, idempotente, `--dry-run` non scrive, riepilogo, query costanti (2 vs 5 asset) |
 | R1 + RMA | idem | `test_rma_update_asset_serial` |
 | R2 | `test_asset_type_decommissioning.py` | form/CSV/API accettano/rifiutano, valore dismesso preservato, filtri, colonna |
 | R3 modello, cascata | `test_decommissioning_record.py` | `test_delete_record_keeps_asset`, `test_delete_asset_cascades_with_two_objectchanges`, `test_contact_protect` |
@@ -572,6 +597,9 @@ Approvate dall'utente il 2026-10-20 (dal prompt, §9). Non si riaprono.
   svuota.
 - **D11 — Cancellazione di un solo Module**: `pre_delete` su `dcim.Module`, aggiornamento in blocco
   con l'istantanea del suo Device, query costanti.
+- **D12 — Riempimento iniziale** (deciso il 2026-10-20, era Q1): comando di gestione
+  `backfill_last_related_info` che popola `last_related_info` per gli asset esistenti assegnati a un
+  Device/Module, solo dove il campo è vuoto (§3.3). La migrazione `0009` resta solo di schema.
 
 ---
 
@@ -579,13 +607,7 @@ Approvate dall'utente il 2026-10-20 (dal prompt, §9). Non si riaprono.
 
 Ognuna ha una raccomandazione; se approvi la specifica senza commenti, vale la raccomandazione.
 
-- **Q1 — Asset esistenti dopo la migrazione.** Con una migrazione solo di schema, gli asset oggi
-  assegnati a un Device hanno `last_related_info = ""` finché non vengono salvati, spostati o il
-  Device non viene cancellato (in quei casi il campo si valorizza). Se un Device viene cancellato
-  dopo l'aggiornamento, il campo si riempie comunque col `pre_delete`. *Raccomandazione*: nessuna
-  `RunPython`; se serve un riempimento iniziale, un comando di gestione
-  `manage.py backfill_last_related_info` (idempotente, solo campi vuoti) — fuori dal piano attuale,
-  da aggiungere solo se lo chiedi.
+- ~~Q1~~ — risolta: vedi D12.
 - **Q2 — Device senza nome.** In NetBox `Device.name` può essere nullo. *Raccomandazione*:
   `device: (unnamed) (id 123)`.
 - **Q3 — `last_related_info` fornito insieme a un cambio di assegnazione Device-like** (es.
