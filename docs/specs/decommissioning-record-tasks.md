@@ -6,10 +6,10 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
 
 ## Stato
 
-- **Task corrente**: CHECKPOINT 2 — prova manuale da browser; scenario eseguito il 2026-10-20 via
-  HTTP (estensione Chrome non connessa): passi 1–14 ok tranne il difetto di T014, che blocca il
-  checkpoint
-- **Ultimo task completato**: T011 — GraphQL (passo 8), commit `e60f757`, 2026-10-20
+- **Task corrente**: CHECKPOINT 2 — prova manuale da browser; da ripetere almeno il passo 9
+  (cancellazione del Device con IP primario) dopo T014, con l'immagine dell'harness ricostruita
+- **Ultimo task completato**: T014 — istantanea alla cancellazione del Device con IP primario,
+  commit (pending), 2026-10-20
 - **Checkpoint raggiunti**: CHECKPOINT 1 (2026-10-20)
 - **Problemi aperti** (fuori ambito, da aprire come issue separate; nessuno blocca il piano):
   - chiave `FIELD_CHOICES` documentata nel README per `lifecycle_status` senza effetto (D6);
@@ -28,6 +28,8 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
     Corretto solo per la lista dei record (T010, §7.2 della specifica); per gli altri basterebbe
     `prefetch_related("assigned_object", "external_inventory_items")` (con prefisso `asset__` dove
     l'asset è annidato). Trovato in T010.
+  - Q10 della specifica (aperta): Module cancellato da solo con l'IP primario del Device sulle sue
+    interfacce, l'istantanea non ha `primary_ip`. Trovato in T014.
 - **Note per i task successivi**:
   - le fixture DCIM dei test di R1 stanno in `tests/dcim_fixtures.py` (`DcimFixturesMixin`, fuso
     `Europe/Rome` e `timezone.now()` fissati in `setUp`).
@@ -61,13 +63,14 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
 - [x] T009 Viste, URL, template, menu, ricerca: viste generiche, `decommissioningrecord.html`, pannelli in `asset.html`/`assettype.html`, badge, `navigation.py`, `search.py` (P6) (passo 6) — requisiti: R1 (pannello), R3, R4, D9 — test: tests/test_decommissioning_views.py, tests/test_decommissioning_record.py, tests/test_navigation.py — commit `19a44b5` — 2026-10-20
 - [x] T010 API REST: serializer, viewset, router, campi su Asset e AssetType, `/api/schema/` (passo 7) — requisiti: R1, R2, R3, R4 — test: tests/test_decommissioning_api.py, tests/test_decommissioning_record.py; tolti i tre `mock.patch("core.signals.enqueue_event")` — commit `d161bd6` — 2026-10-20
 - [x] T011 GraphQL: tipi, filtri, query, campi su Asset e AssetType (Q8) (passo 8) — requisiti: R1, R2, R3 — test: tests/test_decommissioning_graphql.py — commit `e60f757` — 2026-10-20
-- [ ] T014 Istantanea alla cancellazione del Device senza `primary_ip`: il Collector manda il `pre_delete`
+- [x] T014 Istantanea alla cancellazione del Device senza `primary_ip`: il Collector manda il `pre_delete`
   degli IPAddress in cascata (interfacce del Device) prima di quello del Device; `ipam.signals.clear_primary_ip`
   salva il Device con `primary_ip4=None` e `snapshot_assets_of_deleted_device` lo rilegge dal database, quindi
   sovrascrive l'istantanea precedente perdendo l'IP. Proposta: costruire l'istantanea dall'istanza in memoria
   passata a `pre_delete` (ha ancora `primary_ip4_id`; la riga IPAddress esiste fino alla fine dei `pre_delete`),
-  numero di query costante. Trovato al CHECKPOINT 2, passo 9 — requisiti: R1, D11 — test:
-  tests/test_last_related_info.py
+  numero di query costante. Trovato al CHECKPOINT 2, passo 9. Attuato: database per tutto, IP primari dall'istanza se
+  azzerati nel database (il test esistente cancella un'istanza non aggiornata e vuole i valori del database) — requisiti: R1, D11 — test:
+  tests/test_last_related_info.py — commit (pending) — 2026-10-20
 - [ ] CHECKPOINT 2 — prova manuale da browser con lo scenario in 14 passi (checkpoint B del prompt); attesa dell'ok
 - [ ] T012 Documentazione e versione: `docs/decommissioning-record.md`, README (incluse le chiavi R4), CHANGELOG `15.3.0`, `version.py` (passo 9) — requisiti: R4, R5, D1, D5, D6, D12 — test: —
 - [ ] T013 Verifica finale: suite su database di test ricreato, `makemigrations --check`, ruff, `migrate 0008` e ritorno, tabella requisito → test definitiva, `git log` (passo 10) — requisiti: §6 prompt — test: suite completa

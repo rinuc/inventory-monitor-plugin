@@ -10,13 +10,17 @@ from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 
 from inventory_monitor.models import Asset
-from inventory_monitor.snapshot import device_like_content_types, snapshot_of_assignment
+from inventory_monitor.snapshot import (
+    device_like_content_types,
+    snapshot_of_assignment,
+    snapshot_of_deleted_device,
+)
 
 
 @receiver(pre_delete, sender=Device, dispatch_uid="inventory_monitor_device_pre_delete")
 def snapshot_assets_of_deleted_device(sender, instance, **kwargs):
     device_ct, module_ct = device_like_content_types()
-    snapshot = snapshot_of_assignment(device_ct, instance.pk)
+    snapshot = snapshot_of_deleted_device(instance)
     if snapshot is None:
         return
     Asset.objects.filter(

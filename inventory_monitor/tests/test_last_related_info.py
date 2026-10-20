@@ -6,7 +6,7 @@ update rules are in spec §3.2.
 
 from decimal import Decimal
 
-from dcim.models import Device, Module, ModuleBay
+from dcim.models import Device, Interface, Module, ModuleBay
 from django.contrib.contenttypes.models import ContentType
 from django.db import connection
 from django.test import TestCase
@@ -257,6 +257,21 @@ class DeviceDeletionTest(LastRelatedInfoTestCase):
         small, _, _ = self.populate(2)
         large, _, _ = self.populate(5)
         self.assertEqual(self.delete_counting_queries(small), self.delete_counting_queries(large))
+
+    def test_device_delete_keeps_primary_ips_of_its_interfaces(self):
+        """T014: the cascade deletes the Interface IPs first and clears the primary IPs in the database."""
+        for count, field, address in ((1, "primary_ip4", "192.0.2.50/24"), (2, "primary_ip6", "2001:db8::50/64")):
+            with self.subTest(field=field):
+                device, assets, _ = self.populate(count)
+                interface = Interface.objects.create(device=device, name="et-0/0/0", type="1000base-t")
+                ip = IPAddress.objects.create(address=address, assigned_object=interface)
+                Device.objects.filter(pk=device.pk).update(**{field: ip})
+                Device.objects.get(pk=device.pk).delete()
+                self.assertFalse(IPAddress.objects.filter(pk=ip.pk).exists())
+                for asset in assets:
+                    lines = self.reload(asset).last_related_info.splitlines()
+                    self.assertIn(f"primary_ip: {address}", lines)
+                    self.assertIn("device_serial: FINAL", lines)
 
     def test_orphan_keeps_last_related_info(self):
         device, assets, _ = self.populate(2)

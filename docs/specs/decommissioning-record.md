@@ -188,7 +188,8 @@ importata da `models/asset.py` e da `signals.py`, nessun import circolare).
 
 **P4 — Ricevitori di segnale** (nuovo `inventory_monitor/signals.py`, importato in
 `NetBoxInventoryMonitorConfig.ready()` dopo `super().ready()`; oggi `ready()` non è definito):
-- `pre_delete` su `dcim.Device`: istantanea calcolata una volta (1 query), poi un solo
+- `pre_delete` su `dcim.Device`: istantanea calcolata una volta (1 query; +1 per IP primario
+  azzerato, vedi sotto), poi un solo
   `Asset.objects.filter(Q(assigned_object_type=<ct device>, assigned_object_id=device.pk) |
   Q(assigned_object_type=<ct module>, assigned_object_id__in=Module.objects.filter(device=device)
   .values("pk"))).update(last_related_info=...)` (sottoquery, 1 query). `ContentType` via
@@ -197,6 +198,12 @@ importata da `models/asset.py` e da `signals.py`, nessun import circolare).
   un QuerySet di Device, esce; altrimenti istantanea di `module.device` e un `update()`.
   `BulkDeleteView` di NetBox chiama `obj.delete()` per oggetto, quindi `origin` è il Device anche
   nella cancellazione massiva.
+- IP primari alla cancellazione del Device (T014): il Collector manda il `pre_delete` agli IPAddress
+  delle interfacce del Device prima che al Device, e `ipam.signals.clear_primary_ip` salva il Device
+  con `primary_ip4`/`primary_ip6` a `None`. `snapshot_of_deleted_device()` legge il Device dal
+  database (valori più recenti) ma, per ogni IP primario azzerato nel database e ancora presente
+  sull'istanza passata a `delete()`, carica quell'IPAddress (la riga esiste fino alla fine dei
+  `pre_delete`). Per il Module cancellato da solo vedi Q10.
 - Numero di query costante rispetto al numero di asset, verificato con `assertNumQueries` (2 vs 5
   asset). Il Collector invia tutti i `pre_delete` prima di cancellare, quindi il Device esiste
   ancora quando il ricevitore del Module legge `module.device`.
@@ -564,6 +571,7 @@ Nomi indicativi; la tabella definitiva con i nomi reali sarà aggiornata nella v
 | R1 cambio Device | idem | `test_device_change_overwrites` |
 | D10 | idem | `test_leaving_device_refreshes_outgoing_snapshot` |
 | R1 cancellazione Device, N+1 | idem | `test_device_delete_updates_assets_constant_queries` (2 vs 5) |
+| R1 cancellazione Device, IP primario sulle sue interfacce (T014) | idem | `test_device_delete_keeps_primary_ips_of_its_interfaces` |
 | R1 dopo cancellazione | idem | `test_orphan_keeps_last_related_info` |
 | D11 | idem | `test_module_delete_updates_assets_constant_queries` |
 | D12 | `test_backfill_last_related_info.py` | popola Device e Module, non tocca campi pieni né non-Device, salta orfani, idempotente, `--dry-run` non scrive, riepilogo, query costanti (2 vs 5 asset) |
@@ -633,8 +641,8 @@ Approvate dall'utente il 2026-10-20 (dal prompt, §9). Non si riaprono.
 
 ## §Domande aperte
 
-**Tutte risolte il 2026-10-20**: Q1 è diventata D12; Q2–Q9 approvate con la raccomandazione, che
-vale come decisione. Il testo resta qui per la motivazione.
+**Q1–Q9 risolte il 2026-10-20**: Q1 è diventata D12; Q2–Q9 approvate con la raccomandazione, che
+vale come decisione. Il testo resta qui per la motivazione. Q10 è aperta.
 
 - ~~Q1~~ — risolta: vedi D12.
 - **Q2 — Device senza nome.** In NetBox `Device.name` può essere nullo. *Raccomandazione*:
@@ -671,3 +679,10 @@ vale come decisione. Il testo resta qui per la motivazione.
 - **Q9 — Lingua dei documenti.** Questa specifica è in italiano; `CLAUDE.md`,
   `docs/decommissioning-record.md`, README e CHANGELOG in inglese come il resto del repository.
   *Raccomandazione*: così.
+- **Q10 — Module cancellato da solo con l'IP primario del Device sulle sue interfacce** (trovata in
+  T014). Come per il Device, il `pre_delete` degli IPAddress in cascata (interfacce del Module)
+  arriva prima di quello del Module, e `clear_primary_ip` salva il Device senza IP primario:
+  l'istantanea di D11 non ha `primary_ip`. Qui il Device sopravvive e perde davvero quell'IP, quindi
+  l'istantanea descrive lo stato dopo la cancellazione; l'istanza del Module non porta l'IP del
+  Device, quindi la correzione di T014 non si applica. *Raccomandazione*: lasciare così e
+  documentarlo in `docs/decommissioning-record.md` (T012).

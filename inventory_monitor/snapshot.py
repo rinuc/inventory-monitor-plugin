@@ -78,3 +78,24 @@ def snapshot_of_assignment(content_type_id, object_id, now=None):
     else:
         return None
     return build_device_snapshot(device, now) if device else None
+
+
+def snapshot_of_deleted_device(instance, now=None):
+    """Snapshot of a Device in pre_delete: database values, primary IPs from `instance`.
+
+    The Collector sends pre_delete to the IPAddresses of the Device's interfaces before the Device,
+    and ipam.signals.clear_primary_ip saves the Device with the primary IP set to None. The instance
+    passed to delete() still has the primary IP ids, and the IPAddress rows exist until every
+    pre_delete has been sent. At most one extra query per cleared primary IP.
+    """
+    from dcim.models import Device
+    from ipam.models import IPAddress
+
+    device = Device.objects.select_related(*DEVICE_SNAPSHOT_RELATED).filter(pk=instance.pk).first()
+    if device is None:
+        return None
+    for field in ("primary_ip4", "primary_ip6"):
+        original_id = getattr(instance, f"{field}_id")
+        if getattr(device, f"{field}_id") is None and original_id is not None:
+            setattr(device, field, IPAddress.objects.filter(pk=original_id).first())
+    return build_device_snapshot(device, now)
