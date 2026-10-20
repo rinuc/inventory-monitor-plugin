@@ -182,7 +182,7 @@ se vuote.
 | 7 | `device_type` | sì | `device.device_type.full_name` (`<manufacturer> <model>`) |
 | 8 | `device_serial` | no | `device.serial` |
 | 9 | `primary_ip` | no | `str(device.primary_ip.address)` (`Device.primary_ip` rispetta `PREFER_IPV4`) |
-| 10 | `status` | sì | `device.get_status_display()` (etichetta, es. `Active`) |
+| 10 | `status` | sì | `device.get_status_display()` (etichetta in inglese, es. `Active`: l'istantanea si costruisce dentro `translation.override("en")`, Q15) |
 | 11 | `tenant` | no | `device.tenant.name` |
 
 Il formattatore è una funzione pura `build_device_snapshot(device) -> str` in
@@ -485,8 +485,10 @@ Su `AssetFilterSet`: `has_decommissioning_record` (booleano, pattern di
 
 - `navigation.py`, gruppo `"Assets"`: voce *Decommissioning Records* con pulsanti *Add* e *Import*.
 - `search.py`: `DecommissioningRecordIndex` con `disposal_document`, `description`, `comments` e
-  `get_asset_serial_for_search` (metodo del modello, come `AssetIndex`); `display_attrs` con asset e
-  date.
+  il seriale dell'asset, indicizzato sotto il campo `asset` (`get_field_value()` restituisce
+  `asset.serial`) perché i risultati della ricerca etichettano il campo col suo `verbose_name`
+  (*Asset*); un metodo del modello comparirebbe col proprio nome (T017). `display_attrs` con asset
+  e date.
 
 **P5 — Permessi dei pulsanti** a livello di modello (`perms.inventory_monitor.change_...`), come il
 resto del plugin; i permessi con vincoli per oggetto restano applicati dalle viste generiche.
@@ -693,7 +695,7 @@ Approvate dall'utente il 2026-10-20 (dal prompt, §9). Non si riaprono.
 ## §Domande aperte
 
 **Q1–Q9 risolte il 2026-10-20**: Q1 è diventata D12; Q2–Q9 approvate con la raccomandazione, che
-vale come decisione. Il testo resta qui per la motivazione. Q10 è aperta. **Q11–Q14 risolte il
+vale come decisione. Il testo resta qui per la motivazione. Q10 è aperta. **Q11–Q15 risolte il
 2026-10-20**: approvate con la raccomandazione.
 
 - ~~Q1~~ — risolta: vedi D12.
@@ -756,7 +758,8 @@ vale come decisione. Il testo resta qui per la motivazione. Q10 è aperta. **Q11
   `asset_nis_relevant` nella tabella dei record (quindi nell'export CSV se selezionata) e filtro
   `asset_nis_relevant` nel filterset dei record, non tra le colonne di default (il Registro di §1
   resta invariato).
-- **Q15 — Lingua dell'istantanea** (aperta, CHECKPOINT 2 del 2026-10-20). `status` usa
+- **Q15 — Lingua dell'istantanea** (CHECKPOINT 2 del 2026-10-20; **risolta il 2026-10-20** con la
+  raccomandazione, T018). `status` usa
   `device.get_status_display()` (§3.1, riga 10), che rende l'etichetta nella lingua attiva della
   richiesta: con l'interfaccia in italiano l'istantanea scrive `status: Attivo`, con l'inglese
   `Active`, e il pre_delete o il comando `backfill_last_related_info` usano la lingua di chi li

@@ -18,6 +18,7 @@ from django.test import RequestFactory, TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from netbox.context_managers import event_tracking
 from netbox.search.backends import search_backend
+from netbox.tables import SearchTable
 from tenancy.models import Contact
 from users.models import User
 
@@ -444,6 +445,13 @@ class SearchTest(DecommissioningRecordTestCase):
     def test_by_asset_serial(self):
         record = self.make_indexed_record("SN-SEARCH-1")
         self.assertIn((DecommissioningRecord, record.pk), self.search("SN-SEARCH-1"))
+
+    def test_serial_result_has_a_readable_label(self):
+        """The serial is cached under the record's asset field, which NetBox labels by its verbose_name."""
+        record = self.make_indexed_record("SN-LABEL-1")
+        results = [r for r in search_backend.search("SN-LABEL-1") if r.object_id == record.pk]
+        self.assertEqual([(r.field, r.value) for r in results], [("asset", "SN-LABEL-1")])
+        self.assertEqual(SearchTable(results).rows[0].get_cell("field"), "Asset")
 
     def test_serial_change_reindexes_record(self):
         record = self.make_indexed_record("SN-OLD")
