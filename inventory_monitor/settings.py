@@ -6,6 +6,7 @@ and helper functions for commonly used settings.
 """
 
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 
 # Warning thresholds applied when ``warning_days`` does not mention an
 # attribute at all. Setting the key explicitly to None disables colour
@@ -15,6 +16,30 @@ DEFAULT_WARNING_DAYS = {
     "warranty": 60,
     "invoicing": 30,
 }
+
+# Configurable (value, label) lists for decommissioning. They are applied at
+# runtime by forms, serializers, filters and clean(), never as model choices=:
+# with choices= full_clean() would reject a value removed from the
+# configuration on every save of a record that still carries it.
+DECOMMISSIONING_REQUIREMENTS_CHOICES = "decommissioning_requirements_choices"
+SANITIZATION_METHOD_CHOICES = "sanitization_method_choices"
+CHOICE_SETTINGS = (DECOMMISSIONING_REQUIREMENTS_CHOICES, SANITIZATION_METHOD_CHOICES)
+# Lists that must not be empty: with no sanitization method configured no
+# record could carry a sanitization date.
+NON_EMPTY_CHOICE_SETTINGS = (SANITIZATION_METHOD_CHOICES,)
+# max_length of the model fields storing these values
+CHOICE_VALUE_MAX_LENGTH = 50
+
+DEFAULT_DECOMMISSIONING_CHOICES = [
+    ("clear", "Clear (overwrite / shred)"),
+    ("purge", "Purge (ATA Secure Erase / NVMe Sanitize)"),
+    ("crypto_erase", "Cryptographic erase (Pure Drive Erase)"),
+    ("zeroize", "Zeroize (Juniper)"),
+    ("factory_reset", "Factory reset"),
+    ("destroy", "Physical destruction"),
+    ("delegated_vendor", "Delegated to vendor"),
+    ("not_applicable", "Not applicable"),
+]
 
 
 def get_plugin_settings():
@@ -108,3 +133,98 @@ def get_warning_days(attribute):
         # An explicit value wins, including None which disables indicators.
         return warning_days[attribute]
     return DEFAULT_WARNING_DAYS.get(attribute)
+
+
+def _get_choices(key):
+    if key not in CHOICE_SETTINGS:
+        raise ValueError(f"{key!r} is not a configurable choice list")
+    choices = get_plugin_settings().get(key)
+    if choices is None:
+        # PluginConfig.validate() fills in the default at startup; it is missing
+        # only when PLUGINS_CONFIG is replaced afterwards (e.g. override_settings).
+        choices = DEFAULT_DECOMMISSIONING_CHOICES
+    return [(value, label) for value, label in choices]
+
+
+def get_decommissioning_requirements_choices():
+    """
+    Get the configured AssetType decommissioning requirements.
+
+    Returns:
+        list: (value, label) tuples
+    """
+    return _get_choices(DECOMMISSIONING_REQUIREMENTS_CHOICES)
+
+
+def get_sanitization_method_choices():
+    """
+    Get the configured decommissioning record sanitization methods.
+
+    Returns:
+        list: (value, label) tuples
+    """
+    return _get_choices(SANITIZATION_METHOD_CHOICES)
+
+
+def is_configured(key, value):
+    """
+    Check whether a value is in a configurable choice list.
+
+    Args:
+        key: One of CHOICE_SETTINGS
+        value: The stored value; an empty value is never configured
+
+    Returns:
+        bool: True if the value is currently configured
+    """
+    return bool(value) and value in dict(_get_choices(key))
+
+
+def choice_label(key, value):
+    """
+    Get the label of a value in a configurable choice list.
+
+    Returns:
+        str: The configured label, or the value itself if it is not configured
+    """
+    return dict(_get_choices(key)).get(value, value)
+
+
+def validate_choice_settings(plugin_config):
+    """
+    Validate the configurable choice lists of a plugin configuration.
+
+    Each list must be a sequence of (value, label) pairs with unique, non-empty
+    string values of at most CHOICE_VALUE_MAX_LENGTH characters and non-empty
+    string labels. A missing key falls back to the default list.
+
+    Raises:
+        ImproperlyConfigured: naming the offending key and value
+    """
+    for key in CHOICE_SETTINGS:
+        choices = plugin_config.get(key, DEFAULT_DECOMMISSIONING_CHOICES)
+        prefix = f"PLUGINS_CONFIG['inventory_monitor'][{key!r}]"
+
+        if not isinstance(choices, (list, tuple)):
+            raise ImproperlyConfigured(f"{prefix} must be a list of (value, label) pairs, got {choices!r}.")
+        if not choices and key in NON_EMPTY_CHOICE_SETTINGS:
+            raise ImproperlyConfigured(f"{prefix} must not be empty.")
+
+        seen = set()
+        for entry in choices:
+            if not isinstance(entry, (list, tuple)) or len(entry) != 2:
+                raise ImproperlyConfigured(f"{prefix}: {entry!r} is not a (value, label) pair.")
+            value, label = entry
+            if not isinstance(value, str):
+                raise ImproperlyConfigured(f"{prefix}: value {value!r} must be a string.")
+            if not value.strip():
+                raise ImproperlyConfigured(f"{prefix}: value {value!r} must not be empty.")
+            if len(value) > CHOICE_VALUE_MAX_LENGTH:
+                raise ImproperlyConfigured(
+                    f"{prefix}: value {value!r} is longer than {CHOICE_VALUE_MAX_LENGTH} characters."
+                )
+            if value in seen:
+                raise ImproperlyConfigured(f"{prefix}: duplicate value {value!r}.")
+            if not isinstance(label, str) or not label.strip():
+                raise ImproperlyConfigured(f"{prefix}: label of value {value!r} must be a non-empty string.")
+            seen.add(value)
