@@ -4,7 +4,8 @@ The lists live in PLUGINS_CONFIG, not in model ``choices=``: a value removed
 from the configuration must stay valid on records that already carry it, which
 ``choices=`` would forbid on every full_clean(). These tests cover the runtime
 helpers and the startup check; the "value removed from configuration" behaviour
-of forms, filters and the API is tested with those layers.
+of forms, filters and tables is tested in test_asset_type_decommissioning.py and
+test_decommissioning_views.py, that of the API with the serializers.
 """
 
 from django.core.exceptions import ImproperlyConfigured
@@ -15,7 +16,10 @@ from inventory_monitor.settings import (
     DECOMMISSIONING_REQUIREMENTS_CHOICES,
     DEFAULT_DECOMMISSIONING_CHOICES,
     SANITIZATION_METHOD_CHOICES,
+    choice_display,
     choice_label,
+    get_choices,
+    get_choices_including,
     get_decommissioning_requirements_choices,
     get_sanitization_method_choices,
     is_configured,
@@ -111,6 +115,39 @@ class ConfiguredValueTest(SimpleTestCase):
     def test_unknown_key_is_a_programming_error(self):
         with self.assertRaises(ValueError):
             is_configured("currencies", "EUR")
+
+
+class ChoiceDisplayTest(SimpleTestCase):
+    """What forms and tables show for a stored value (R4)."""
+
+    @override_settings(PLUGINS_CONFIG=plugins_config(sanitization_method_choices=CUSTOM))
+    def test_get_choices(self):
+        self.assertEqual(get_choices(SANITIZATION_METHOD_CHOICES), CUSTOM)
+        self.assertEqual(get_choices(DECOMMISSIONING_REQUIREMENTS_CHOICES), EXPECTED_DEFAULTS)
+
+    @override_settings(PLUGINS_CONFIG=plugins_config(sanitization_method_choices=CUSTOM))
+    def test_choice_display(self):
+        self.assertEqual(choice_display(SANITIZATION_METHOD_CHOICES, "wipe"), "Wipe")
+        self.assertEqual(choice_display(SANITIZATION_METHOD_CHOICES, "zeroize"), "zeroize (not in configuration)")
+        self.assertEqual(choice_display(SANITIZATION_METHOD_CHOICES, ""), "")
+
+    @override_settings(PLUGINS_CONFIG=plugins_config(sanitization_method_choices=CUSTOM))
+    def test_choices_including_a_removed_value(self):
+        self.assertEqual(
+            get_choices_including(SANITIZATION_METHOD_CHOICES, "zeroize"),
+            CUSTOM + [("zeroize", "zeroize (not in configuration)")],
+        )
+
+    @override_settings(PLUGINS_CONFIG=plugins_config(sanitization_method_choices=CUSTOM))
+    def test_choices_including_a_configured_or_empty_value(self):
+        self.assertEqual(get_choices_including(SANITIZATION_METHOD_CHOICES, "wipe"), CUSTOM)
+        self.assertEqual(get_choices_including(SANITIZATION_METHOD_CHOICES, ""), CUSTOM)
+        self.assertEqual(get_choices_including(SANITIZATION_METHOD_CHOICES, None), CUSTOM)
+
+    def test_choices_including_does_not_alter_the_configuration(self):
+        with self.settings(PLUGINS_CONFIG=plugins_config(sanitization_method_choices=list(CUSTOM))):
+            get_choices_including(SANITIZATION_METHOD_CHOICES, "zeroize")
+            self.assertEqual(get_choices(SANITIZATION_METHOD_CHOICES), CUSTOM)
 
 
 class ValidateChoiceSettingsTest(SimpleTestCase):

@@ -6,8 +6,8 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
 
 ## Stato
 
-- **Task corrente**: T008 — Form, filtri, tabelle (passo 5)
-- **Ultimo task completato**: T007 — `last_related_info` (passo 4), commit `83525a9`, 2026-10-20
+- **Task corrente**: T009 — Viste, URL, template, menu, ricerca (passo 6)
+- **Ultimo task completato**: T008 — Form, filtri, tabelle (passo 5), commit (pending), 2026-10-20
 - **Checkpoint raggiunti**: CHECKPOINT 1 (2026-10-20)
 - **Problemi aperti** (fuori ambito, da aprire come issue separate; nessuno blocca il piano):
   - chiave `FIELD_CHOICES` documentata nel README per `lifecycle_status` senza effetto (D6);
@@ -31,6 +31,14 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
     seriale (P6, §2.1 della specifica) arrivano con la ricerca in T009.
   - le fixture DCIM dei test di R1 stanno in `tests/dcim_fixtures.py` (`DcimFixturesMixin`, fuso
     `Europe/Rome` e `timezone.now()` fissati in `setUp`).
+  - da T008, dipendono dall'URL `decommissioningrecord` e quindi passano a T009: link al record
+    nella colonna `decommissioning_record` di `AssetTable` (oggi solo sì/no, `TEMPLATE_DECOMMISSIONING_RECORD`
+    in `tables/asset.py`) con test; test di V6 via POST su `asset_bulk_edit` (oggi fallisce con
+    `NoReverseMatch` perché la pagina di errore rende il record); `select_related("decommissioning_record")`
+    in `AssetListView.queryset` con test N+1 della lista asset con le colonne nuove.
+  - le scelte configurabili nei form usano `settings.get_choices_including()`; tabelle e filtri
+    `*_configured` usano `helpers.ConfiguredChoiceColumn` e `helpers.filter_configured()`: da riusare
+    nei template (T009), nel serializer (T010) e in GraphQL (T011).
   - buchi di test emersi al CHECKPOINT 1, da coprire nei task successivi: assenza di `ObjectChange`
     nel comando `backfill_last_related_info` (D12); vincolo di unicità 0:1 a livello di database
     (`IntegrityError` con `save()` senza `full_clean()`), oggi provato solo in nbshell.
@@ -45,7 +53,7 @@ Regole di aggiornamento: `CLAUDE.md`, sezione *Task tracking*.
 - [x] T006 Modelli e migrazione `0009`: `Asset.last_related_info`, `AssetType.decommissioning_requirements`, `DecommissioningRecord`, V0–V7, cascade e changelog, `EXCLUDED_MODELS` (passo 3) — requisiti: R2 (modello), R3 (modello, V0–V7), R5 (migrazione), D2, D3, D6, D7 — test: tests/test_decommissioning_record.py, tests/test_contacts.py — commit `b22bff6` — 2026-10-20
 - [x] T007 `last_related_info`: calcolo al salvataggio (D10), `pre_delete` su Device e Module (D11), comando `backfill_last_related_info` (D12) (passo 4) — requisiti: R1, D5, D8, D10, D11, D12 — test: tests/test_last_related_info.py, tests/test_backfill_last_related_info.py — commit `83525a9` — 2026-10-20
 - [x] CHECKPOINT 1 — schema della migrazione (`sqlmigrate inventory_monitor 0009`), `migrate` avanti e indietro, elenco dei test; attesa dell'ok prima dell'interfaccia (checkpoint A del prompt) — ok dell'utente — 2026-10-20
-- [ ] T008 Form, filtri, tabelle: AssetType (form, filtri, tabella, CSV), record (form, filtri, tabella, import), colonne e filtro `has_decommissioning_record` su Asset, campi nuovi in `AssetForm`/`AssetBulkImportForm` (passo 5) — requisiti: R2, R3, R4, D3, D4 — test: tests/test_asset_type_decommissioning.py, tests/test_decommissioning_views.py, tests/test_decommissioning_settings.py
+- [x] T008 Form, filtri, tabelle: AssetType (form, filtri, tabella, CSV), record (form, filtri, tabella, import), colonne e filtro `has_decommissioning_record` su Asset, campi nuovi in `AssetForm`/`AssetBulkImportForm` (passo 5) — requisiti: R2, R3, R4, D3, D4 — test: tests/test_asset_type_decommissioning.py, tests/test_decommissioning_views.py, tests/test_decommissioning_settings.py — commit (pending) — 2026-10-20
 - [ ] T009 Viste, URL, template, menu, ricerca: viste generiche, `decommissioningrecord.html`, pannelli in `asset.html`/`assettype.html`, badge, `navigation.py`, `search.py` (P6) (passo 6) — requisiti: R1 (pannello), R3, R4, D9 — test: tests/test_decommissioning_views.py, tests/test_decommissioning_record.py, tests/test_navigation.py
 - [ ] T010 API REST: serializer, viewset, router, campi su Asset e AssetType, `/api/schema/` (passo 7) — requisiti: R1, R2, R3, R4 — test: tests/test_decommissioning_api.py; togliere il `mock.patch("core.signals.enqueue_event")` da `test_delete_asset_cascades_with_two_objectchanges`
 - [ ] T011 GraphQL: tipi, filtri, query, campi su Asset e AssetType (Q8) (passo 8) — requisiti: R1, R2, R3 — test: tests/test_decommissioning_graphql.py

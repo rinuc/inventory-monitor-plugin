@@ -2,7 +2,7 @@ from core.models import ObjectType
 from dcim.models import Device, Location, Module, Rack, Site
 from django import forms
 from django.core.exceptions import ValidationError
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 from netbox.forms import (
     NetBoxModelForm,
     PrimaryModelBulkEditForm,
@@ -136,6 +136,14 @@ class AssetForm(PrimaryModelForm):
         widget=DatePicker(),
     )
 
+    # Snapshot of the last Device; refreshed on a Device change (R1)
+    last_related_info = forms.CharField(
+        required=False,
+        label=_("Last related device info"),
+        widget=forms.Textarea(attrs={"rows": 6}),
+        help_text=_("Snapshot of the last device the asset was assigned to, refreshed when the device changes"),
+    )
+
     # Metadata fields
     comments = CommentField(label="Comments")
 
@@ -167,6 +175,7 @@ class AssetForm(PrimaryModelForm):
                 FieldSet("device", name=_("Device")),
                 FieldSet("module", name=_("Module")),
             ),
+            "last_related_info",
             name=_("Component Assignment"),
         ),
         # Related objects
@@ -197,6 +206,7 @@ class AssetForm(PrimaryModelForm):
             "rack",
             "device",
             "module",
+            "last_related_info",
             # Related objects
             "order_contract",
             # Additional information
@@ -324,6 +334,7 @@ class AssetFilterForm(ContactModelFilterForm, PrimaryModelFilterSetForm):
         FieldSet("quantity", "quantity__gte", "quantity__lte", name=_("Quantity")),
         FieldSet("price", "price__gte", "price__lte", "price__isnull", "currency", name=_("Price")),
         FieldSet("has_external_inventory_items", name=_("External Inventory")),
+        FieldSet("has_decommissioning_record", name=_("Decommissioning")),
         FieldSet("contact", "contact_role", "contact_group", name=_("Contacts")),
         FieldSet("owner_group_id", "owner_id", name=_("Ownership")),
     )
@@ -448,6 +459,16 @@ class AssetFilterForm(ContactModelFilterForm, PrimaryModelFilterSetForm):
         help_text=_("Filter by whether Asset object has assigned External Inventory items"),
     )
 
+    has_decommissioning_record = forms.ChoiceField(
+        choices=[
+            ("", "All"),
+            ("true", "With decommissioning record"),
+            ("false", "Without decommissioning record"),
+        ],
+        required=False,
+        label=_("Has decommissioning record"),
+    )
+
 
 class AssetBulkEditForm(PrimaryModelBulkEditForm):
     description = forms.CharField(
@@ -569,6 +590,10 @@ class AssetBulkImportForm(PrimaryModelImportForm):
     warranty_start = forms.DateField(required=False, help_text="Warranty start date (YYYY-MM-DD)")
     warranty_end = forms.DateField(required=False, help_text="Warranty end date (YYYY-MM-DD)")
     comments = forms.CharField(required=False, help_text="Free-text comments")
+    last_related_info = forms.CharField(
+        required=False,
+        help_text="Snapshot of the last device (overwritten when the asset is assigned to a device or module)",
+    )
 
     class Meta:
         model = Asset
@@ -587,6 +612,7 @@ class AssetBulkImportForm(PrimaryModelImportForm):
             "warranty_start",
             "warranty_end",
             "comments",
+            "last_related_info",
             "owner",
             "tags",
         ]

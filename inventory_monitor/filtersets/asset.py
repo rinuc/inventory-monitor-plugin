@@ -114,6 +114,11 @@ class AssetFilterSet(PrimaryModelFilterSet, ContactModelFilterSet):
         label="Has External Inventory items",
     )
 
+    has_decommissioning_record = django_filters.BooleanFilter(
+        method="filter_has_decommissioning_record",
+        label="Has decommissioning record",
+    )
+
     has_duplicates = django_filters.BooleanFilter(
         method="filter_has_duplicates",
         label="Has Duplicates",
@@ -200,6 +205,7 @@ class AssetFilterSet(PrimaryModelFilterSet, ContactModelFilterSet):
             "warranty_start",
             "warranty_end",
             "has_external_inventory_items",
+            "has_decommissioning_record",
             "has_duplicates",
             "external_inventory_number",
         )
@@ -214,6 +220,19 @@ class AssetFilterSet(PrimaryModelFilterSet, ContactModelFilterSet):
             return queryset.filter(external_inventory_items__isnull=False).distinct()
         elif value is False:
             return queryset.exclude(external_inventory_items__isnull=False)
+        else:
+            return queryset
+
+    def filter_has_decommissioning_record(self, queryset, name, value):
+        """
+        Filter assets based on whether they have a decommissioning record.
+
+        Uses exclude for the false case, like filter_has_external_inventory_items.
+        """
+        if value is True:
+            return queryset.filter(decommissioning_record__isnull=False)
+        elif value is False:
+            return queryset.exclude(decommissioning_record__isnull=False)
         else:
             return queryset
 

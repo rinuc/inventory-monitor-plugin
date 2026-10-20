@@ -4,12 +4,15 @@ import logging
 
 import django_tables2
 from core.models import ObjectType
-from django.db.models import Count, OuterRef, Subquery, Value
+from django.db.models import Count, OuterRef, Q, Subquery, Value
 from django.template import Context, Template
 from django.utils.functional import cached_property
+from django.utils.html import format_html
 from netbox.plugins import get_plugin_config
 from packaging.version import Version
 from utilities.templatetags.builtins.filters import register
+
+from inventory_monitor.settings import choice_display, get_choices, is_configured
 
 logger = logging.getLogger("inventory_monitor")
 
@@ -209,6 +212,40 @@ class DateBadgeColumn(CachedTemplateColumn):
 
     def value(self, value, **kwargs):
         return value.isoformat() if value else None
+
+
+class ConfiguredChoiceColumn(django_tables2.Column):
+    """A value of a configurable choice list (R4), shown by its configured label.
+
+    A value removed from the configuration is shown as "<value> (not in
+    configuration)" in a warning badge, and exported with the same text.
+    """
+
+    def __init__(self, *args, choice_key, **kwargs):
+        self.choice_key = choice_key
+        super().__init__(*args, **kwargs)
+
+    def render(self, value):
+        if is_configured(self.choice_key, value):
+            return choice_display(self.choice_key, value)
+        return format_html('<span class="badge text-bg-warning">{}</span>', choice_display(self.choice_key, value))
+
+    def value(self, value, **kwargs):
+        return choice_display(self.choice_key, value)
+
+
+def filter_configured(queryset, field_name, choice_key, value):
+    """Filter on whether a field holds a value of a configurable choice list (R4).
+
+    False finds the values removed from the configuration; an empty field is
+    neither, since there is nothing to fix.
+    """
+    if value is None:
+        return queryset
+    configured = Q(**{f"{field_name}__in": [v for v, _label in get_choices(choice_key)]})
+    if value:
+        return queryset.filter(configured)
+    return queryset.exclude(configured).exclude(**{field_name: ""})
 
 
 # One badge per service, so the lines stay aligned with the Service Start,

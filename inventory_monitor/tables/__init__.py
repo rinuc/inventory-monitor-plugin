@@ -24,6 +24,11 @@ from inventory_monitor.tables.contractor import (
     ContractorTable,
 )
 
+# Decommissioning Record tables
+from inventory_monitor.tables.decommissioning_record import (
+    DecommissioningRecordTable,
+)
+
 # External Inventory tables
 from inventory_monitor.tables.external_inventory import (
     ExternalInventoryTable,
@@ -58,6 +63,8 @@ __all__ = [
     "ContractTable",
     # Contractor tables
     "ContractorTable",
+    # Decommissioning Record tables
+    "DecommissioningRecordTable",
     # External Inventory tables
     "ExternalInventoryTable",
     # Invoice tables

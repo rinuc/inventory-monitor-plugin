@@ -7,6 +7,7 @@ and helper functions for commonly used settings.
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.translation import gettext_lazy as _
 
 # Warning thresholds applied when ``warning_days`` does not mention an
 # attribute at all. Setting the key explicitly to None disables colour
@@ -146,6 +147,19 @@ def _get_choices(key):
     return [(value, label) for value, label in choices]
 
 
+def get_choices(key):
+    """
+    Get a configurable choice list by its key.
+
+    Args:
+        key: One of CHOICE_SETTINGS
+
+    Returns:
+        list: (value, label) tuples
+    """
+    return _get_choices(key)
+
+
 def get_decommissioning_requirements_choices():
     """
     Get the configured AssetType decommissioning requirements.
@@ -188,6 +202,46 @@ def choice_label(key, value):
         str: The configured label, or the value itself if it is not configured
     """
     return dict(_get_choices(key)).get(value, value)
+
+
+def not_configured_label(value):
+    """
+    Get the label shown for a stored value that is no longer configured.
+
+    Returns:
+        str: The value followed by "(not in configuration)"
+    """
+    return _("{value} (not in configuration)").format(value=value)
+
+
+def choice_display(key, value):
+    """
+    Get the text shown for a value of a configurable choice list.
+
+    Returns:
+        str: The configured label, not_configured_label() for a removed value, or "" if empty
+    """
+    if not value:
+        return ""
+    if is_configured(key, value):
+        return choice_label(key, value)
+    return not_configured_label(value)
+
+
+def get_choices_including(key, value):
+    """
+    Get a configurable choice list, plus ``value`` if it is no longer configured.
+
+    Edit forms pass the value of the object being edited: the object can keep a
+    value removed from the configuration, which no other object is offered.
+
+    Returns:
+        list: (value, label) tuples
+    """
+    choices = _get_choices(key)
+    if value and value not in dict(choices):
+        choices.append((value, not_configured_label(value)))
+    return choices
 
 
 def validate_choice_settings(plugin_config):

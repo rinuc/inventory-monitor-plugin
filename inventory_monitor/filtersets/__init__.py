@@ -23,6 +23,11 @@ from inventory_monitor.filtersets.contractor import (
     ContractorFilterSet,
 )
 
+# Decommissioning Record filtersets
+from inventory_monitor.filtersets.decommissioning_record import (
+    DecommissioningRecordFilterSet,
+)
+
 # External Inventory filtersets
 from inventory_monitor.filtersets.external_inventory import (
     ExternalInventoryFilterSet,
@@ -55,6 +60,8 @@ __all__ = [
     "ContractFilterSet",
     # Contractor filtersets
     "ContractorFilterSet",
+    # Decommissioning Record filtersets
+    "DecommissioningRecordFilterSet",
     # External Inventory filtersets
     "ExternalInventoryFilterSet",
     # Invoice filtersets

@@ -39,6 +39,14 @@ from inventory_monitor.forms.contractor import (
     ContractorBulkImportForm,
 )
 
+# Decommissioning Record forms
+from inventory_monitor.forms.decommissioning_record import (
+    DecommissioningRecordForm,
+    DecommissioningRecordFilterForm,
+    DecommissioningRecordBulkEditForm,
+    DecommissioningRecordBulkImportForm,
+)
+
 # External Inventory forms
 from inventory_monitor.forms.external_inventory import (
     ExternalInventoryForm,
@@ -100,6 +108,11 @@ __all__ = [
     "ContractorFilterForm",
     "ContractorBulkEditForm",
     "ContractorBulkImportForm",
+    # Decommissioning Record forms
+    "DecommissioningRecordForm",
+    "DecommissioningRecordFilterForm",
+    "DecommissioningRecordBulkEditForm",
+    "DecommissioningRecordBulkImportForm",
     # External Inventory forms
     "ExternalInventoryForm",
     "ExternalInventoryBulkEditForm",

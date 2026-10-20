@@ -70,6 +70,11 @@ ASSOCIATED_EXTERNAL_INVENTORY_ASSETS = """
 """
 
 
+TEMPLATE_DECOMMISSIONING_RECORD = """
+  {% checkmark value %}
+"""
+
+
 class AssetTable(ContactsColumnMixin, PrimaryModelTable):
     """
     Table configuration for displaying Asset objects in list views
@@ -159,6 +164,24 @@ class AssetTable(ContactsColumnMixin, PrimaryModelTable):
     )
 
     #
+    # Decommissioning record columns
+    #
+    decommissioning_record = CachedTemplateColumn(
+        template_code=TEMPLATE_DECOMMISSIONING_RECORD,
+        # Rendered for assets without a record too, as "No"
+        empty_values=(),
+        order_by="decommissioning_record__id",
+        verbose_name="Decommissioning Record",
+    )
+    technical_decommission_date = columns.DateColumn(
+        accessor="decommissioning_record__technical_decommission_date", verbose_name="Technical Decommission"
+    )
+    sanitization_date = columns.DateColumn(
+        accessor="decommissioning_record__sanitization_date", verbose_name="Sanitization"
+    )
+    disposal_date = columns.DateColumn(accessor="decommissioning_record__disposal_date", verbose_name="Disposal")
+
+    #
     # Metadata columns
     #
     tags = columns.TagColumn()
@@ -202,6 +225,11 @@ class AssetTable(ContactsColumnMixin, PrimaryModelTable):
             "services_from",
             "services_to",
             "services_status",
+            # Decommissioning record
+            "decommissioning_record",
+            "technical_decommission_date",
+            "sanitization_date",
+            "disposal_date",
             # Contacts & ownership
             "contacts",
             "owner",
