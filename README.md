@@ -2,7 +2,7 @@
 
 A comprehensive NetBox plugin for asset management with semi-automatic discovery processes. This plugin extends NetBox with powerful inventory tracking capabilities, including asset lifecycle management, probe monitoring, contract tracking, and RMA (Return Merchandise Authorization) processing.
 
-[![Version](https://img.shields.io/badge/version-15.1.0-blue.svg)](https://github.com/CESNET/inventory-monitor-plugin)
+[![Version](https://img.shields.io/badge/version-15.3.0-blue.svg)](https://github.com/CESNET/inventory-monitor-plugin)
 [![NetBox](https://img.shields.io/badge/netbox-4.7.0%2B-green.svg)](https://github.com/netbox-community/netbox)
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 
@@ -17,6 +17,7 @@ A comprehensive NetBox plugin for asset management with semi-automatic discovery
 - **🏢 External Inventory**: Integration with external inventory systems with configurable status mappings
 - **🛠️ Asset Services**: Track maintenance and service contracts with multi-currency pricing
 - **📈 Lifecycle Management**: Full asset lifecycle status tracking
+- **🗑️ Decommissioning Register (NIS2)**: Decommissioning, data sanitization and disposal records per asset, with a snapshot of the last Device and a CSV export of the register
 - **🔍 Advanced Search**: Powerful filtering and search capabilities with GraphQL support
 - **🎨 Visual Interface**: Rich UI with status indicators and color coding
 - **🔌 NetBox Integration**: Native NetBox plugin following best practices
@@ -48,6 +49,7 @@ classDiagram
         +SlugField slug
         +CharField description
         +ColorField color
+        +CharField decommissioning_requirements
     }
 
     class Asset {
@@ -66,6 +68,8 @@ classDiagram
         +GenericForeignKey assigned_object
         +ForeignKey type
         +ForeignKey order_contract
+        +BooleanField nis_relevant
+        +TextField last_related_info
         +TextField comments
         +is_recently_probed()
         +get_related_probes()
@@ -146,6 +150,18 @@ classDiagram
         +ForeignKey asset
     }
 
+    class DecommissioningRecord {
+        +OneToOneField asset
+        +DateField technical_decommission_date
+        +ForeignKey technical_decommission_operator
+        +DateField sanitization_date
+        +CharField sanitization_method
+        +ForeignKey sanitization_operator
+        +DateField disposal_date
+        +TextField disposal_document
+        +clean() validates dates and asset status
+    }
+
     class ExternalInventory {
         +CharField external_id
         +CharField inventory_number
@@ -169,6 +185,7 @@ classDiagram
     AssetType --> Asset : "type"
     Asset --> AssetService : "asset"
     Asset --> RMA : "asset"
+    Asset --> DecommissioningRecord : "asset (0..1)"
     Asset --> Probe : "serial match"
     Asset --> ExternalInventory : "M2M assets"
     Contract --> Asset : "order_contract"
@@ -279,6 +296,8 @@ The central model representing physical or logical inventory items.
 - `price`: Asset purchase price (DecimalField, nullable, must be ≥ 0)
 - `currency`: Price currency (CharField, nullable - required only when price is set and non-zero)
 - `warranty_start/end`: Warranty period tracking
+- `nis_relevant`: Whether the asset is relevant for NIS2 compliance (default `False`)
+- `last_related_info`: Snapshot of the last Device the asset was assigned to, kept after the Device is deleted (see [docs/decommissioning-record.md](docs/decommissioning-record.md))
 - `comments`: Additional notes
 
 **Special Features:**
@@ -291,6 +310,23 @@ The central model representing physical or logical inventory items.
 - External inventory assignment management with dedicated form
 - Comprehensive filtering including external inventory number search
 - Probe matching via serial number (current and RMA serials)
+
+#### **DecommissioningRecord**
+How an asset left the organisation's control, one record per asset at most. Exporting the record list as CSV gives the decommissioning register required by NIS2 procedures.
+
+**Key Fields:**
+- `asset`: One-to-one link to the Asset (cannot be changed once set; deleting the asset deletes the record)
+- `technical_decommission_date` / `technical_decommission_operator`: When and by whom (Contact) the asset was taken out of service
+- `sanitization_date` / `sanitization_method` / `sanitization_operator`: When, how and by whom the data was erased; methods from `sanitization_method_choices`
+- `disposal_date` / `disposal_document`: When the asset was disposed of, and the disposal certificate reference (e.g. WEEE form number)
+
+**Features:**
+- Dates cannot be in the future and must follow decommission → sanitization → disposal
+- The record and the asset's lifecycle status are kept consistent: a decommission date needs the asset Retired or Disposed, a disposal date needs it Disposed, and the asset cannot leave those statuses while the record has the dates
+- **AssetType** gains `decommissioning_requirements`, shown as a reminder when the record is filled in
+- Panel on the asset page; global search by asset serial and disposal document; REST API and GraphQL
+
+See [docs/decommissioning-record.md](docs/decommissioning-record.md) for the rules, the register columns, `last_related_info` and the upgrade steps.
 
 #### **Probe**
 Discovery and monitoring data collection points populated by external scripts (e.g., SNMP discovery tools).
@@ -499,6 +535,26 @@ sudo systemctl restart netbox netbox-rq
 
 ## Upgrade Guide
 
+### Upgrading to v15.3.0
+
+Version 15.3.0 adds the decommissioning register (migration `0009_decommissioning_record`). Existing
+data is unchanged; the new fields start empty (`nis_relevant` is `False`).
+
+1. **Backup your database** (recommended)
+2. **Update the plugin** and run `python manage.py migrate`
+3. **Fill `last_related_info`** for assets that are already assigned to a Device or Module (once;
+   safe to run again, it never overwrites a filled field):
+   ```bash
+   python manage.py backfill_last_related_info --dry-run   # report only
+   python manage.py backfill_last_related_info
+   ```
+   With netbox-docker: `docker compose exec netbox /opt/netbox/netbox/manage.py backfill_last_related_info`.
+   Orphaned assignments (Device or Module already deleted) are skipped, and no change log entries
+   are written. See [docs/decommissioning-record.md](docs/decommissioning-record.md#upgrading-filling-last_related_info-for-existing-assets).
+4. **Restart NetBox services**
+5. Optionally set `sanitization_method_choices` and `decommissioning_requirements_choices` (see
+   [Decommissioning Settings](#decommissioning-settings)).
+
 ### Upgrading to v12.0.0
 
 **Version 12.0.0** brings full **NetBox v4 compatibility** with significant internal changes:
@@ -602,6 +658,17 @@ PLUGINS_CONFIG = {
 
         # Attachments Integration (Optional)
         "enable_netbox_attachments": False,  # Requires netbox-attachments >= 11.0.0
+
+        # Decommissioning Settings (Optional): (value, label) pairs; a list replaces the default
+        "sanitization_method_choices": [
+            ("clear", "Clear (overwrite / shred)"),
+            ("purge", "Purge (ATA Secure Erase / NVMe Sanitize)"),
+            ("destroy", "Physical destruction"),
+        ],
+        "decommissioning_requirements_choices": [
+            ("clear", "Clear (overwrite / shred)"),
+            ("destroy", "Physical destruction"),
+        ],
     }
 }
 ```
@@ -688,6 +755,30 @@ Both filters are available over REST and in the UI, e.g. `?service_status=expire
 - Tooltip generated dynamically from all configured statuses
 - Form help text automatically populated with available status codes
 - If not configured, displays raw status value without special formatting
+
+#### Decommissioning Settings
+- **`sanitization_method_choices`** (optional): Sanitization methods selectable in decommissioning records, as `(value, label)` pairs.
+- **`decommissioning_requirements_choices`** (optional): Decommissioning requirements selectable on asset types, same format.
+
+Both default to:
+
+```python
+[
+    ("clear", "Clear (overwrite / shred)"),
+    ("purge", "Purge (ATA Secure Erase / NVMe Sanitize)"),
+    ("crypto_erase", "Cryptographic erase (Pure Drive Erase)"),
+    ("zeroize", "Zeroize (Juniper)"),
+    ("factory_reset", "Factory reset"),
+    ("destroy", "Physical destruction"),
+    ("delegated_vendor", "Delegated to vendor"),
+    ("not_applicable", "Not applicable"),
+]
+```
+
+- A list in `PLUGINS_CONFIG` **replaces** the default list, it does not extend it.
+- Values must be unique, non-empty strings of at most 50 characters; an invalid list stops NetBox at startup with an `ImproperlyConfigured` error naming the key and the value.
+- Removing a value never changes stored data: records and asset types keeping it show `<value> (not in configuration)` with a warning badge, the API returns `*_configured: false`, the `*_configured=false` filters find them, and their edit form keeps the value selectable.
+- These fields are not configurable through `FIELD_CHOICES`. See [docs/decommissioning-record.md](docs/decommissioning-record.md#configuration).
 
 ### Integration with NetBox Attachments
 

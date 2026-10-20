@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [15.3.0] - 2026-10-20
+
+### Added
+
+- Decommissioning register (NIS2): a `DecommissioningRecord` per asset with the technical
+  decommission date and operator, the sanitization date, method and operator, and the disposal
+  date and certificate reference. Operators are Contacts. Records have list, detail, edit, bulk
+  edit, bulk delete and CSV import views, a **Decommissioning (NIS2)** panel on the asset page,
+  global search by asset serial and disposal document, REST API
+  (`/api/plugins/inventory-monitor/decommissioning-records/`) and GraphQL. Exporting the record
+  list as CSV gives the register. See `docs/decommissioning-record.md`.
+- Validation keeps the record and the asset consistent through every channel that calls
+  `full_clean()` (forms, bulk edit, CSV import, REST API): no future dates, dates in the order
+  decommission → sanitization → disposal, method and sanitization date set together, a decommission
+  date only on a Retired or Disposed asset and a disposal date only on a Disposed one. An asset whose
+  record has those dates cannot leave Retired/Disposed (errors `decommissioned_asset` and
+  `disposed_asset`).
+- `Asset.last_related_info`: a text snapshot of the last Device (directly or through a Module) the
+  asset was assigned to, written on assignment, when the asset leaves the Device and when the
+  Device or Module is deleted, so the register keeps the device after its deletion. Labels are
+  always in English.
+- `Asset.nis_relevant`: a flag for NIS2-relevant assets, in forms, bulk edit, CSV import, filters,
+  the asset list (default column), REST API and GraphQL; the record list has an optional
+  *Asset NIS2 relevant* column and filter.
+- `AssetType.decommissioning_requirements`, shown as a reminder in the record form.
+- Settings `sanitization_method_choices` and `decommissioning_requirements_choices` (lists of
+  `(value, label)` pairs, validated at startup). A value removed from the configuration is kept on
+  existing objects and shown as `<value> (not in configuration)`; `*_configured` filters and API
+  fields find them.
+- Asset list: optional columns for the decommissioning record and its dates, filter
+  `has_decommissioning_record`.
+- Management command `backfill_last_related_info` (`--dry-run`).
+
+### Upgrade notes
+
+- Migration `0009_decommissioning_record` adds the new fields and model; existing data is unchanged.
+- After `migrate`, run `python manage.py backfill_last_related_info` once to fill
+  `last_related_info` for assets already assigned to a Device or Module. It never overwrites a
+  filled field, skips assignments whose Device or Module no longer exists and writes no change log
+  entries.
+- Scripts that set the lifecycle status with a direct `save()` or `QuerySet.update()` bypass the new
+  rules; scripts using the REST API or `full_clean()` get the new errors.
+
 ## [15.2.0] - 2026-10-09
 
 ### Changed
